@@ -1,0 +1,2820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquidity Dashboard - IELG + LII</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #06080c;
+            --bg-secondary: #0c1017;
+            --bg-tertiary: #121820;
+            --bg-card: #0f1318;
+            --border: #1e2530;
+            --text-primary: #e4e8f0;
+            --text-secondary: #8892a0;
+            --text-muted: #505868;
+            --accent-green: #00d672;
+            --accent-red: #ff3b5c;
+            --accent-yellow: #ffc107;
+            --accent-cyan: #00c8ff;
+            --accent-purple: #8b5cf6;
+            --accent-orange: #ff9800;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-purple) 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.7rem;
+            color: #fff;
+        }
+
+        .logo-text {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .logo-subtitle {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.7rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-yellow);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .refresh-btn {
+            padding: 0.5rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .refresh-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 0.5rem;
+            padding: 1rem 2rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-tab {
+            padding: 0.6rem 1.2rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.75rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-tab:hover { border-color: var(--accent-cyan); }
+        .nav-tab.active { background: var(--accent-cyan); border-color: var(--accent-cyan); color: #000; }
+
+        .nav-tab .badge {
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            font-weight: 600;
+        }
+
+        .nav-tab:not(.active) .badge.low { background: var(--accent-green); color: #000; }
+        .nav-tab:not(.active) .badge.mid { background: var(--accent-yellow); color: #000; }
+        .nav-tab:not(.active) .badge.high { background: var(--accent-red); color: #fff; }
+        .nav-tab:not(.active) .badge.bull { background: var(--accent-green); color: #000; }
+        .nav-tab:not(.active) .badge.bear { background: var(--accent-red); color: #fff; }
+        .nav-tab:not(.active) .badge.flat { background: var(--accent-yellow); color: #000; }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 1.5rem 2rem;
+        }
+
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+            gap: 1rem;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent-cyan);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .section { display: none; }
+        .section.active { display: block; }
+
+        .dual-index-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .triple-index-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .charts-row-triple {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .index-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.25rem;
+            position: relative;
+        }
+
+        .index-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            border-radius: 16px 16px 0 0;
+        }
+
+        .index-card.dlsi::before { background: linear-gradient(90deg, var(--accent-yellow), var(--accent-orange)); }
+        .index-card.ielg::before { background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple)); }
+        .index-card.lii::before { background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan)); }
+
+        .index-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .index-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .index-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .index-badge {
+            padding: 0.2rem 0.5rem;
+            border-radius: 5px;
+            font-size: 0.6rem;
+            font-weight: 600;
+        }
+
+        .index-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 3rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+
+        .index-value.bull, .index-value.low { color: var(--accent-green); }
+        .index-value.bear, .index-value.high { color: var(--accent-red); }
+        .index-value.flat, .index-value.mid { color: var(--accent-yellow); }
+
+        .index-status { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.75rem; }
+
+        .index-desc {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            padding: 0.6rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            line-height: 1.5;
+        }
+
+        .charts-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .chart-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+
+        .chart-wrapper { height: 220px; }
+
+        .components-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .components-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .tier-header {
+            grid-column: 1 / -1;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+            margin-top: 0.5rem;
+        }
+
+        .tier-header:first-child {
+            margin-top: 0;
+        }
+
+        .tier-section {
+            margin-bottom: 1.25rem;
+        }
+
+        .tier-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--accent-purple);
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* Section Charts */
+        .section-chart-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .section-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .section-chart-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .section-scale-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .section-scale-controls input {
+            width: 50px;
+            padding: 0.3rem 0.4rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.7rem;
+            text-align: center;
+        }
+
+        .section-scale-controls input:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+        }
+
+        .section-chart-wrapper {
+            height: 220px;
+            padding: 0.75rem;
+        }
+
+        .component-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.85rem;
+            position: relative;
+        }
+
+        .component-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .component-card.positive::before { background: var(--accent-green); }
+        .component-card.negative::before { background: var(--accent-red); }
+
+        .component-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.4rem;
+        }
+
+        .component-name {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .component-weight {
+            font-size: 0.55rem;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 0.1rem 0.25rem;
+            border-radius: 3px;
+        }
+
+        .component-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.15rem;
+        }
+
+        .component-value.positive { color: var(--accent-green); }
+        .component-value.negative { color: var(--accent-red); }
+
+        .component-score {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .interpretation-box {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .interpretation-box.bullish { border-color: var(--accent-green); background: rgba(0, 214, 114, 0.05); }
+        .interpretation-box.bearish { border-color: var(--accent-red); background: rgba(255, 59, 92, 0.05); }
+
+        .interpretation-icon { font-size: 1.8rem; }
+        .interpretation-text { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.6; }
+        .interpretation-text strong { color: var(--text-primary); }
+
+        .analysis-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .analysis-controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .control-group label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        .control-btn {
+            padding: 0.3rem 0.6rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.65rem;
+            cursor: pointer;
+        }
+
+        .control-btn:hover { border-color: var(--accent-cyan); }
+        .control-btn.active { background: var(--accent-cyan); border-color: var(--accent-cyan); color: #000; }
+
+        .tv-widget-container {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .tv-widget { height: 350px; }
+
+        .chart-label-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 1rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .chart-label-sub {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .combined-chart-container {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-top: 1rem;
+            overflow: hidden;
+        }
+
+        .combined-chart-legend {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.7rem;
+        }
+
+        .chart-controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .scale-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .scale-control {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.65rem;
+        }
+
+        .scale-control label {
+            font-weight: 600;
+        }
+
+        .scale-control input {
+            width: 45px;
+            padding: 0.2rem 0.3rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.65rem;
+            text-align: center;
+        }
+
+        .scale-control input:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+        }
+
+        .scale-control span {
+            color: var(--text-muted);
+        }
+
+        .scale-reset-btn {
+            padding: 0.25rem 0.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.65rem;
+            cursor: pointer;
+        }
+
+        .scale-reset-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .divergence-dot {
+            background: linear-gradient(135deg, #ff3b5c 50%, #00d672 50%);
+        }
+
+        .combined-chart-wrapper {
+            height: 280px;
+            padding: 0.75rem;
+            position: relative;
+        }
+
+        .chart-tooltip {
+            display: none;
+            position: absolute;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.6rem 0.8rem;
+            font-size: 0.7rem;
+            pointer-events: none;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .chart-tooltip.visible {
+            display: block;
+        }
+
+        .tooltip-date {
+            color: var(--text-muted);
+            margin-bottom: 0.3rem;
+            font-size: 0.65rem;
+        }
+
+        .tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .tooltip-label {
+            color: var(--text-secondary);
+        }
+
+        .tooltip-value {
+            font-weight: 600;
+        }
+
+        .tooltip-value.dlsi { color: #ff9800; }
+        .tooltip-value.lii-pos { color: #00d672; }
+        .tooltip-value.lii-neg { color: #ff3b5c; }
+
+        .divergence-signals {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-top: 1rem;
+            overflow: hidden;
+        }
+
+        .divergence-header {
+            padding: 0.6rem 1rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .divergence-list {
+            padding: 0.75rem;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .divergence-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            font-size: 0.7rem;
+        }
+
+        .divergence-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .divergence-item.bullish {
+            border-left: 3px solid var(--accent-green);
+        }
+
+        .divergence-item.bearish {
+            border-left: 3px solid var(--accent-red);
+        }
+
+        .divergence-icon {
+            font-size: 1.1rem;
+        }
+
+        .divergence-date {
+            color: var(--text-muted);
+            min-width: 80px;
+        }
+
+        .divergence-desc {
+            color: var(--text-secondary);
+            flex: 1;
+        }
+
+        .divergence-values {
+            display: flex;
+            gap: 0.75rem;
+            font-size: 0.65rem;
+        }
+
+        .divergence-values span {
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            background: var(--bg-card);
+        }
+
+        .no-divergences {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .dual-chart-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .sync-chart { height: 150px; padding: 0.5rem; }
+
+        .lii-sync-chart { height: 140px; padding: 0.5rem; }
+
+        .footer {
+            padding: 1.25rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        /* Explanation Sections */
+        .explanation-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-top: 1.5rem;
+        }
+
+        .explanation-intro {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 1.25rem;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .explanation-intro strong {
+            color: var(--accent-cyan);
+        }
+
+        .explanation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .explanation-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .explanation-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .explanation-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .explanation-text {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .explanation-text strong {
+            color: var(--text-primary);
+        }
+
+        .explanation-scale {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .explanation-scale .scale-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .scale-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .scale-item {
+            padding: 0.35rem 0.7rem;
+            border-radius: 5px;
+            font-size: 0.65rem;
+            font-weight: 500;
+        }
+
+        .scale-item.low { background: var(--accent-green); color: #000; }
+        .scale-item.mid { background: var(--accent-yellow); color: #000; }
+        .scale-item.mid-high { background: var(--accent-orange); color: #000; }
+        .scale-item.high { background: var(--accent-red); color: #fff; }
+        .scale-item.bull { background: var(--accent-green); color: #000; }
+        .scale-item.bull-mild { background: rgba(0, 214, 114, 0.6); color: #000; }
+        .scale-item.neutral { background: var(--accent-yellow); color: #000; }
+        .scale-item.bear-mild { background: rgba(255, 59, 92, 0.6); color: #fff; }
+        .scale-item.bear { background: var(--accent-red); color: #fff; }
+
+        .explanation-summary {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            padding: 0.85rem;
+            background: rgba(0, 200, 255, 0.1);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 8px;
+            line-height: 1.6;
+        }
+
+        .explanation-summary strong {
+            color: var(--accent-cyan);
+        }
+
+        @media (max-width: 1200px) {
+            .triple-index-row, .charts-row-triple { grid-template-columns: 1fr 1fr; }
+        }
+
+        @media (max-width: 800px) {
+            .triple-index-row, .charts-row-triple, .dual-index-row, .charts-row { grid-template-columns: 1fr; }
+        }
+
+        .api-key-section {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .api-key-input {
+            padding: 0.4rem 0.6rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.7rem;
+            width: 140px;
+        }
+
+        .api-key-input:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+        }
+
+        .api-key-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .api-key-btn {
+            padding: 0.4rem 0.6rem;
+            background: var(--accent-cyan);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .api-key-btn:hover {
+            opacity: 0.8;
+        }
+
+        .api-key-help {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        .api-key-help a {
+            color: var(--accent-cyan);
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">LIQ</div>
+                <div>
+                    <div class="logo-text">Liquidity Dashboard</div>
+                    <div class="logo-subtitle">DLSI + IELG + LII • GitHub Pages Edition</div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="api-key-section">
+                    <input type="password" id="apiKeyInput" placeholder="FRED API Key" class="api-key-input">
+                    <button class="api-key-btn" onclick="saveApiKey()">💾</button>
+                </div>
+                <div class="status-badge">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Esperando API Key</span>
+                </div>
+                <button class="refresh-btn" onclick="fetchAllData()">↻ Actualizar</button>
+            </div>
+        </div>
+    </header>
+
+    <nav class="nav-tabs">
+        <button class="nav-tab active" data-section="overview">📊 Overview</button>
+        <button class="nav-tab" data-section="dlsi">⚡ DLSI <span class="badge flat" id="dlsiBadge">--</span></button>
+        <button class="nav-tab" data-section="ielg">🌐 IELG <span class="badge low" id="ielgBadge">--</span></button>
+        <button class="nav-tab" data-section="lii">💧 LII <span class="badge flat" id="liiBadge">--</span></button>
+        <button class="nav-tab" data-section="analysis">📈 Análisis</button>
+    </nav>
+
+    <main class="container">
+        <div class="loading-container" id="loadingContainer">
+            <div class="loading-spinner"></div>
+            <div id="loadingText">Ingresá tu FRED API Key para comenzar</div>
+            <div class="api-key-help">
+                Obtené tu API key gratis en <a href="https://fred.stlouisfed.org/docs/api/api_key.html" target="_blank">fred.stlouisfed.org</a>
+            </div>
+        </div>
+
+        <div id="mainContent" style="display: none;">
+            
+            <!-- OVERVIEW -->
+            <section class="section active" id="section-overview">
+                <div class="triple-index-row">
+                    <div class="index-card dlsi">
+                        <div class="index-header">
+                            <div>
+                                <div class="index-label">Estrés Diario</div>
+                                <div class="index-name">DLSI</div>
+                            </div>
+                            <div class="index-badge" id="dlsiStatusBadge">--</div>
+                        </div>
+                        <div class="index-value flat" id="dlsiValue">--</div>
+                        <div class="index-status" id="dlsiStatusText">Cargando...</div>
+                        <div class="index-desc">
+                            <strong>Diario:</strong> VIX, Spreads, Tasas, DXY | 0-100
+                        </div>
+                    </div>
+
+                    <div class="index-card ielg">
+                        <div class="index-header">
+                            <div>
+                                <div class="index-label">Estrés Macro</div>
+                                <div class="index-name">IELG</div>
+                            </div>
+                            <div class="index-badge" id="ielgStatusBadge">--</div>
+                        </div>
+                        <div class="index-value low" id="ielgValue">--</div>
+                        <div class="index-status" id="ielgStatusText">Cargando...</div>
+                        <div class="index-desc">
+                            <strong>Semanal:</strong> Net Liquidity, Reserves | 0-100
+                        </div>
+                    </div>
+
+                    <div class="index-card lii">
+                        <div class="index-header">
+                            <div>
+                                <div class="index-label">Impulso Liquidez</div>
+                                <div class="index-name">LII</div>
+                            </div>
+                            <div class="index-badge" id="liiStatusBadge">--</div>
+                        </div>
+                        <div class="index-value flat" id="liiValue">--</div>
+                        <div class="index-status" id="liiStatusText">Cargando...</div>
+                        <div class="index-desc">
+                            <strong>Momentum:</strong> Δ5d en liquidez | -100 a +100
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-row-triple">
+                    <div class="chart-card">
+                        <div class="chart-title">⚡ DLSI - 60 días</div>
+                        <div class="chart-wrapper"><canvas id="dlsiChart"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">🌐 IELG - 60 días</div>
+                        <div class="chart-wrapper"><canvas id="ielgChart"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">💧 LII - 60 días</div>
+                        <div class="chart-wrapper"><canvas id="liiChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="interpretation-box" id="interpBox">
+                    <div class="interpretation-icon">📊</div>
+                    <div class="interpretation-text" id="interpText">Cargando...</div>
+                </div>
+            </section>
+
+            <!-- DLSI -->
+            <section class="section" id="section-dlsi">
+                <!-- Chart with scale controls -->
+                <div class="section-chart-container">
+                    <div class="section-chart-header">
+                        <div class="section-chart-title">⚡ DLSI - Daily Liquidity Stress Index</div>
+                        <div class="section-scale-controls">
+                            <label>Escala Y:</label>
+                            <input type="number" id="dlsiSectionMin" value="0" min="0" max="50" step="10">
+                            <span>-</span>
+                            <input type="number" id="dlsiSectionMax" value="100" min="50" max="100" step="10">
+                            <button class="scale-reset-btn" onclick="resetSectionScale('dlsi', 0, 100)">↺</button>
+                        </div>
+                    </div>
+                    <div class="section-chart-wrapper">
+                        <canvas id="dlsiSectionChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="components-section">
+                    <div class="section-title">🔧 Componentes DLSI</div>
+                    <div class="components-grid" id="dlsiGrid"></div>
+                </div>
+
+                <div class="explanation-section">
+                    <div class="section-title">📚 ¿Cómo funciona el DLSI?</div>
+                    <div class="explanation-intro">
+                        El <strong>Daily Liquidity Stress Index (DLSI)</strong> mide el estrés de liquidez usando datos de mercado <strong>100% diarios</strong>. 
+                        A diferencia del IELG (datos semanales de la Fed), el DLSI captura tensiones en tiempo real mediante proxies de mercado.
+                    </div>
+                    <div class="explanation-grid">
+                        <div class="explanation-card">
+                            <div class="explanation-icon">😱</div>
+                            <div class="explanation-title">VIX (15%)</div>
+                            <div class="explanation-text">
+                                <strong>¿Qué es?</strong> Volatilidad implícita del S&P 500 ("índice del miedo").<br><br>
+                                <strong>Umbrales:</strong> &lt;15 = calma, 15-25 = normal, 25-35 = elevado, &gt;35 = pánico.
+                            </div>
+                        </div>
+                        <div class="explanation-card">
+                            <div class="explanation-icon">💳</div>
+                            <div class="explanation-title">Credit Spread HY-IG (20%)</div>
+                            <div class="explanation-text">
+                                <strong>¿Qué es?</strong> Diferencia entre spreads de High Yield e Investment Grade.<br><br>
+                                <strong>¿Por qué importa?</strong> Cuando sube, los inversores huyen del riesgo crediticio = estrés.
+                            </div>
+                        </div>
+                        <div class="explanation-card">
+                            <div class="explanation-icon">🏦</div>
+                            <div class="explanation-title">SOFR-EFFR Spread (15%)</div>
+                            <div class="explanation-text">
+                                <strong>¿Qué es?</strong> Diferencia entre tasa de repos (SOFR) y Fed Funds (EFFR).<br><br>
+                                <strong>¿Por qué importa?</strong> Spread grande indica tensión en el mercado de funding overnight.
+                            </div>
+                        </div>
+                        <div class="explanation-card">
+                            <div class="explanation-icon">💵</div>
+                            <div class="explanation-title">DXY Momentum (15%)</div>
+                            <div class="explanation-text">
+                                <strong>¿Qué es?</strong> Cambio reciente en el índice del dólar.<br><br>
+                                <strong>¿Por qué importa?</strong> Dólar subiendo rápido = "dollar squeeze" global, afecta liquidez en mercados emergentes y commodities.
+                            </div>
+                        </div>
+                        <div class="explanation-card">
+                            <div class="explanation-icon">📉</div>
+                            <div class="explanation-title">2Y-10Y Spread (15%)</div>
+                            <div class="explanation-text">
+                                <strong>¿Qué es?</strong> Diferencia entre rendimiento del Treasury 10 años y 2 años.<br><br>
+                                <strong>¿Por qué importa?</strong> Inversión (negativo) señala expectativas de recesión y potencial estrés futuro.
+                            </div>
+                        </div>
+                        <div class="explanation-card">
+                            <div class="explanation-icon">⚠️</div>
+                            <div class="explanation-title">VIX Term Structure (10%)</div>
+                            <div class="explanation-text">
+                                <strong>¿Qué es?</strong> Relación entre VIX spot y su media de 20 días.<br><br>
+                                <strong>¿Por qué importa?</strong> VIX muy por encima de su media = pánico agudo; por debajo = complacencia.
+                            </div>
+                        </div>
+                        <div class="explanation-card">
+                            <div class="explanation-icon">🇯🇵</div>
+                            <div class="explanation-title">JPY Carry Risk (10%)</div>
+                            <div class="explanation-text">
+                                <strong>¿Qué es?</strong> Cambio en USD/JPY en los últimos 5 días.<br><br>
+                                <strong>¿Por qué importa?</strong> Yen fortaleciéndose rápido (USD/JPY cayendo) = carry trade unwind. Puede causar liquidaciones masivas globales como en agosto 2024.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="explanation-scale">
+                        <div class="scale-title">Escala de Estrés:</div>
+                        <div class="scale-items">
+                            <div class="scale-item low">0-20: Calma</div>
+                            <div class="scale-item bull-mild">20-40: Normal</div>
+                            <div class="scale-item mid">40-60: Elevado</div>
+                            <div class="scale-item mid-high">60-80: Alto</div>
+                            <div class="scale-item high">80-100: Extremo</div>
+                        </div>
+                    </div>
+                    <div class="explanation-summary">
+                        <strong>Ventaja del DLSI:</strong> Actualización diaria permite detectar tensiones antes que los datos semanales de la Fed. 
+                        Ideal para timing de corto plazo y alertas tempranas. Incluye JPY carry risk crítico en el entorno actual.
+                    </div>
+                </div>
+            </section>
+
+            <!-- IELG -->
+            <section class="section" id="section-ielg">
+                <!-- Chart with scale controls -->
+                <div class="section-chart-container">
+                    <div class="section-chart-header">
+                        <div class="section-chart-title">🌐 IELG v2 - Índice de Estrés de Liquidez Global</div>
+                        <div class="section-scale-controls">
+                            <label>Escala Y:</label>
+                            <input type="number" id="ielgSectionMin" value="0" min="0" max="50" step="10">
+                            <span>-</span>
+                            <input type="number" id="ielgSectionMax" value="100" min="50" max="100" step="10">
+                            <button class="scale-reset-btn" onclick="resetSectionScale('ielg', 0, 100)">↺</button>
+                        </div>
+                    </div>
+                    <div class="section-chart-wrapper">
+                        <canvas id="ielgSectionChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="components-section">
+                    <div class="section-title">🔧 Componentes IELG v2 (10 indicadores, 3 tiers)</div>
+                    <div class="components-grid" id="ielgGrid"></div>
+                </div>
+
+                <div class="explanation-section">
+                    <div class="section-title">📚 ¿Cómo funciona el IELG v2?</div>
+                    <div class="explanation-intro">
+                        El <strong>Índice de Estrés de Liquidez Global v2 (IELG)</strong> es un indicador compuesto de <strong>10 métricas</strong> organizadas en 3 tiers, 
+                        diseñado para medir el estrés sistémico de mediano plazo. Combina liquidez real, señales de mercado y factores globales.
+                    </div>
+                    
+                    <div class="tier-section">
+                        <div class="tier-title">📊 Tier 1: Liquidity Core (50%)</div>
+                        <div class="explanation-grid">
+                            <div class="explanation-card">
+                                <div class="explanation-icon">💰</div>
+                                <div class="explanation-title">Net Liquidity (25%)</div>
+                                <div class="explanation-text">
+                                    <strong>Fórmula:</strong> Reservas + RRP − TGA<br>
+                                    <strong>Umbrales:</strong> >$3.5T = excelente, $2.5-3T = estrés, <$2T = crisis
+                                </div>
+                            </div>
+                            <div class="explanation-card">
+                                <div class="explanation-icon">📈</div>
+                                <div class="explanation-title">Liq. Momentum (15%)</div>
+                                <div class="explanation-text">
+                                    <strong>¿Qué es?</strong> Cambio anualizado en net liquidity<br>
+                                    <strong>Importa:</strong> Tendencia importa tanto como nivel absoluto
+                                </div>
+                            </div>
+                            <div class="explanation-card">
+                                <div class="explanation-icon">🏦</div>
+                                <div class="explanation-title">Reserve Adequacy (10%)</div>
+                                <div class="explanation-text">
+                                    <strong>¿Qué es?</strong> Reservas vs umbral mínimo ($3T)<br>
+                                    <strong>Importa:</strong> <90% = bancos compiten por liquidez
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tier-section">
+                        <div class="tier-title">⚠️ Tier 2: Stress Signals (25%)</div>
+                        <div class="explanation-grid">
+                            <div class="explanation-card">
+                                <div class="explanation-icon">💵</div>
+                                <div class="explanation-title">SOFR-EFFR (10%)</div>
+                                <div class="explanation-text">
+                                    <strong>Normal:</strong> ~0 bps<br>
+                                    <strong>Estrés:</strong> >5 bps indica fricciones en funding
+                                </div>
+                            </div>
+                            <div class="explanation-card">
+                                <div class="explanation-icon">📊</div>
+                                <div class="explanation-title">MOVE Proxy (8%)</div>
+                                <div class="explanation-text">
+                                    <strong>¿Qué es?</strong> Volatilidad en bonos del Tesoro<br>
+                                    <strong>Umbrales:</strong> <80 = calma, >120 = estrés
+                                </div>
+                            </div>
+                            <div class="explanation-card">
+                                <div class="explanation-icon">📉</div>
+                                <div class="explanation-title">Treasury Vol (7%)</div>
+                                <div class="explanation-text">
+                                    <strong>¿Qué es?</strong> Volatilidad 5d del 10Y Treasury<br>
+                                    <strong>Importa:</strong> Alta vol = incertidumbre de tasas
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tier-section">
+                        <div class="tier-title">🌍 Tier 3: Global Factors (25%)</div>
+                        <div class="explanation-grid">
+                            <div class="explanation-card">
+                                <div class="explanation-icon">🇯🇵</div>
+                                <div class="explanation-title">Yen Risk (8%)</div>
+                                <div class="explanation-text">
+                                    <strong>¿Qué es?</strong> USD/JPY nivel + velocidad de cambio<br>
+                                    <strong>Riesgo:</strong> Yen fortaleciéndose rápido = carry unwind
+                                </div>
+                            </div>
+                            <div class="explanation-card">
+                                <div class="explanation-icon">💳</div>
+                                <div class="explanation-title">HY Spread (7%)</div>
+                                <div class="explanation-text">
+                                    <strong>Normal:</strong> 300-400 bps<br>
+                                    <strong>Estrés:</strong> >500 bps = flight to quality
+                                </div>
+                            </div>
+                            <div class="explanation-card">
+                                <div class="explanation-icon">😱</div>
+                                <div class="explanation-title">VIX Term (5%)</div>
+                                <div class="explanation-text">
+                                    <strong>Normal:</strong> VIX < MA20 (contango)<br>
+                                    <strong>Estrés:</strong> VIX > MA20 (backwardation)
+                                </div>
+                            </div>
+                            <div class="explanation-card">
+                                <div class="explanation-icon">🏛️</div>
+                                <div class="explanation-title">Policy Signal (5%)</div>
+                                <div class="explanation-text">
+                                    <strong>¿Qué es?</strong> Cambio en EFFR últimos 90 días<br>
+                                    <strong>Importa:</strong> Recortes agresivos = pánico Fed
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="explanation-scale">
+                        <div class="scale-title">Escala de Estrés:</div>
+                        <div class="scale-items">
+                            <div class="scale-item low">0-25: Normal</div>
+                            <div class="scale-item bull-mild">25-40: Bajo</div>
+                            <div class="scale-item mid">40-55: Moderado</div>
+                            <div class="scale-item mid-high">55-70: Elevado</div>
+                            <div class="scale-item high">70+: Alto/Crisis</div>
+                        </div>
+                    </div>
+                    <div class="explanation-summary">
+                        <strong>IELG v2 vs DLSI:</strong> El IELG usa datos de la Fed (semanales) para medir estrés estructural de mediano plazo. 
+                        El DLSI usa datos de mercado (diarios) para alertas de corto plazo. Ambos se complementan.
+                    </div>
+                </div>
+            </section>
+
+            <!-- LII -->
+            <section class="section" id="section-lii">
+                <!-- Chart with scale controls -->
+                <div class="section-chart-container">
+                    <div class="section-chart-header">
+                        <div class="section-chart-title">💧 LII - Liquidity Impulse Index</div>
+                        <div class="section-scale-controls">
+                            <label>Escala Y:</label>
+                            <input type="number" id="liiSectionMin" value="-80" min="-100" max="0" step="10">
+                            <span>-</span>
+                            <input type="number" id="liiSectionMax" value="80" min="0" max="100" step="10">
+                            <button class="scale-reset-btn" onclick="resetSectionScale('lii', -80, 80)">↺</button>
+                        </div>
+                    </div>
+                    <div class="section-chart-wrapper">
+                        <canvas id="liiSectionChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="components-section">
+                    <div class="section-title">🔧 Componentes LII</div>
+                    <div class="components-grid" id="liiGrid"></div>
+                </div>
+
+                <div class="explanation-section">
+                    <div class="section-title">📚 ¿Cómo funciona el LII?</div>
+                    <div class="explanation-intro">
+                        El <strong>Liquidity Impulse Index (LII)</strong> mide el <strong>cambio marginal</strong> en la liquidez comparado con hace 5 días. 
+                        No mide el nivel absoluto, sino si la liquidez está expandiendo o contrayendo — útil para timing de corto plazo.
+                    </div>
+                    <div class="explanation-grid">
+                        <div class="explanation-card">
+                            <div class="explanation-icon">💰</div>
+                            <div class="explanation-title">Net Liquidity (50%)</div>
+                            <div class="explanation-text">
+                                <strong>¿Qué es?</strong> El cambio en Reservas + RRP − TGA en los últimos 5 días.<br><br>
+                                <strong>¿Por qué importa?</strong> Es el componente principal. Si sube, hay más dinero entrando al sistema. Si baja, está saliendo.
+                            </div>
+                        </div>
+                        <div class="explanation-card">
+                            <div class="explanation-icon">🏛️</div>
+                            <div class="explanation-title">Fed Balance (20%)</div>
+                            <div class="explanation-text">
+                                <strong>¿Qué es?</strong> El cambio en el balance de la Fed (WALCL).<br><br>
+                                <strong>¿Por qué importa?</strong> Cuando la Fed expande su balance, inyecta liquidez. Cuando lo contrae (QT), la drena.
+                            </div>
+                        </div>
+                        <div class="explanation-card">
+                            <div class="explanation-icon">🏦</div>
+                            <div class="explanation-title">Treasury Flow (15%)</div>
+                            <div class="explanation-text">
+                                <strong>¿Qué es?</strong> El cambio en la cuenta del Tesoro (TGA), invertido.<br><br>
+                                <strong>¿Por qué importa?</strong> Cuando el Tesoro gasta (TGA baja), inyecta dinero a la economía. Cuando acumula (TGA sube), drena liquidez.
+                            </div>
+                        </div>
+                        <div class="explanation-card">
+                            <div class="explanation-icon">🌍</div>
+                            <div class="explanation-title">Foreign Repo (10%)</div>
+                            <div class="explanation-text">
+                                <strong>¿Qué es?</strong> Dinero que bancos centrales extranjeros depositan en la Fed.<br><br>
+                                <strong>¿Por qué importa?</strong> Cuando sube, es liquidez que sale del sistema de EEUU. Es dinero que ya no está disponible para los mercados.
+                            </div>
+                        </div>
+                        <div class="explanation-card">
+                            <div class="explanation-icon">🚨</div>
+                            <div class="explanation-title">Bank Stress (-5%)</div>
+                            <div class="explanation-text">
+                                <strong>¿Qué es?</strong> Préstamos de emergencia que los bancos piden a la Fed.<br><br>
+                                <strong>¿Por qué importa?</strong> Normalmente es cero. Si los bancos piden prestado >$10B, significa que tienen problemas. Es una señal de alerta.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="explanation-scale">
+                        <div class="scale-title">Interpretación:</div>
+                        <div class="scale-items">
+                            <div class="scale-item bull">>+50: Expansión Fuerte</div>
+                            <div class="scale-item bull-mild">+20 a +50: Bullish</div>
+                            <div class="scale-item neutral">-20 a +20: Neutral</div>
+                            <div class="scale-item bear-mild">-50 a -20: Bearish</div>
+                            <div class="scale-item bear"><-50: Contracción Severa</div>
+                        </div>
+                    </div>
+                    <div class="explanation-summary">
+                        <strong>En resumen:</strong> LII positivo = más dinero fluyendo hacia los mercados = favorable para acciones y cripto. 
+                        LII negativo = dinero saliendo = cautela.
+                    </div>
+                </div>
+            </section>
+
+            <!-- ANALYSIS -->
+            <section class="section" id="section-analysis">
+                <div class="analysis-section">
+                    <div class="section-title">📈 Precio vs Liquidez</div>
+                    
+                    <div class="analysis-controls">
+                        <div class="control-group">
+                            <label>Activo:</label>
+                            <button class="control-btn active" data-symbol="AMEX:SPY">SPX</button>
+                            <button class="control-btn" data-symbol="BITSTAMP:BTCUSD">BTC</button>
+                            <button class="control-btn" data-symbol="NASDAQ:QQQ">QQQ</button>
+                            <button class="control-btn" data-symbol="AMEX:GLD">Gold</button>
+                        </div>
+                        <div class="control-group">
+                            <label>Rango:</label>
+                            <button class="control-btn" data-range="30">30d</button>
+                            <button class="control-btn active" data-range="60">60d</button>
+                            <button class="control-btn" data-range="90">90d</button>
+                        </div>
+                    </div>
+
+                    <!-- TradingView Price Chart -->
+                    <div class="tv-widget-container">
+                        <div class="chart-label-bar">
+                            <span id="tvAssetName">S&P 500</span>
+                            <span class="chart-label-sub">Precio</span>
+                        </div>
+                        <div id="tradingview-widget" class="tv-widget"></div>
+                    </div>
+
+                    <!-- Combined Liquidity Chart -->
+                    <div class="combined-chart-container">
+                        <div class="chart-label-bar">
+                            <span>Indicadores de Liquidez</span>
+                            <span class="chart-label-sub">DLSI (estrés) + LII (momentum)</span>
+                        </div>
+                        <div class="chart-controls-row">
+                            <div class="combined-chart-legend">
+                                <div class="legend-item">
+                                    <span class="legend-dot" style="background: #ff9800;"></span>
+                                    <span>DLSI (0-100)</span>
+                                </div>
+                                <div class="legend-item">
+                                    <span class="legend-dot" style="background: #00c8ff;"></span>
+                                    <span>LII (-100 a +100)</span>
+                                </div>
+                                <div class="legend-item divergence-legend" id="divergenceLegend">
+                                    <span class="legend-dot divergence-dot"></span>
+                                    <span>Divergencias</span>
+                                </div>
+                            </div>
+                            <div class="scale-controls">
+                                <div class="scale-control">
+                                    <label style="color: #ff9800;">DLSI:</label>
+                                    <input type="number" id="dlsiMin" value="0" min="0" max="50" step="10">
+                                    <span>-</span>
+                                    <input type="number" id="dlsiMax" value="100" min="50" max="100" step="10">
+                                </div>
+                                <div class="scale-control">
+                                    <label style="color: #00c8ff;">LII:</label>
+                                    <input type="number" id="liiMin" value="-80" min="-100" max="0" step="10">
+                                    <span>-</span>
+                                    <input type="number" id="liiMax" value="80" min="0" max="100" step="10">
+                                </div>
+                                <button class="scale-reset-btn" id="resetScales">↺ Reset</button>
+                            </div>
+                        </div>
+                        <div class="combined-chart-wrapper">
+                            <canvas id="combinedLiquidityChart"></canvas>
+                        </div>
+                        <div class="chart-tooltip" id="chartTooltip"></div>
+                    </div>
+
+                    <!-- Divergence Signals -->
+                    <div class="divergence-signals" id="divergenceSignals">
+                        <div class="divergence-header">
+                            <span>🔍 Señales de Divergencia Detectadas</span>
+                        </div>
+                        <div class="divergence-list" id="divergenceList">
+                            <!-- Se llena dinámicamente -->
+                        </div>
+                    </div>
+
+                    <!-- Combined Interpretation -->
+                    <div class="interpretation-box" id="analysisInterpBox">
+                        <div class="interpretation-icon">📊</div>
+                        <div class="interpretation-text" id="analysisInterpText">
+                            Cargando análisis...
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer">
+        Liquidity Dashboard | IELG (Estrés Macro) + LII (Momentum) | FRED + Treasury
+    </footer>
+
+    <script>
+        // ============================================
+        // CONFIGURATION - GitHub Pages (No Server)
+        // ============================================
+        
+        const FRED_BASE = 'https://api.stlouisfed.org/fred/series/observations';
+        const TREASURY_BASE = 'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/dts/operating_cash_balance';
+        
+        // FRED Series IDs
+        const FRED_SERIES = {
+            RESERVES: 'WRESBAL',
+            RRP: 'RRPONTSYD',
+            WALCL: 'WALCL',
+            FOREIGN_REPO: 'WLRRAFOIAL',
+            BANK_BORROWING: 'WLCFLPCL',
+            VIX: 'VIXCLS',
+            HY_SPREAD: 'BAMLH0A0HYM2',
+            IG_SPREAD: 'BAMLC0A0CM',
+            EFFR: 'DFF',
+            SOFR: 'SOFR',
+            DGS2: 'DGS2',
+            DGS10: 'DGS10',
+            DXY: 'DTWEXBGS',
+            USDJPY: 'DEXJPUS'
+        };
+
+        let FRED_API_KEY = localStorage.getItem('FRED_API_KEY') || '';
+        const MOMENTUM_PERIOD = 5;
+        
+        let state = { data: {}, ielg: { value: 0, components: {}, history: [] }, lii: { value: 0, components: {}, history: [] }, dlsi: { value: 0, components: {}, history: [] } };
+        let charts = {};
+
+        // Navigation
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(`section-${tab.dataset.section}`)?.classList.add('active');
+                if (tab.dataset.section === 'analysis') initTradingViewWidget();
+            });
+        });
+
+        // Utilities
+        function normalizeScore(change, scale) {
+            if (change === null || isNaN(change)) return 0;
+            return Math.max(-100, Math.min(100, (change / scale) * 100));
+        }
+
+        function getValueForDate(map, date) {
+            if (map.has(date)) return map.get(date);
+            const dates = Array.from(map.keys()).sort();
+            for (let i = dates.length - 1; i >= 0; i--) {
+                if (dates[i] <= date) return map.get(dates[i]);
+            }
+            return 0;
+        }
+
+        function getLatest(arr, offset = 0) {
+            if (!arr || arr.length <= offset) return null;
+            return arr[arr.length - 1 - offset]?.value;
+        }
+
+        // DLSI Calculation (con JPY Carry Risk)
+        function calculateDLSI(data) {
+            const vix = data.VIX || [];
+            const hySpread = data.HY_SPREAD || [];
+            const igSpread = data.IG_SPREAD || [];
+            const sofr = data.SOFR || [];
+            const effr = data.EFFR || [];
+            const dgs2 = data.DGS2 || [];
+            const dgs10 = data.DGS10 || [];
+            const dxy = data.DXY || [];
+            const vix3m = data.VIX3M || [];
+            const usdjpy = data.USDJPY || [];
+
+            if (vix.length === 0) return { value: 0, components: {}, history: [] };
+
+            // Latest values
+            const vixVal = getLatest(vix) || 15;
+            const hyVal = getLatest(hySpread) || 4;
+            const igVal = getLatest(igSpread) || 1;
+            const sofrVal = getLatest(sofr) || 5;
+            const effrVal = getLatest(effr) || 5;
+            const dgs2Val = getLatest(dgs2) || 4;
+            const dgs10Val = getLatest(dgs10) || 4;
+            const dxyVal = getLatest(dxy) || 100;
+            const dxyPrev = getLatest(dxy, 5) || 100;
+            const vix3mVal = getLatest(vix3m) || vixVal;
+            const usdjpyVal = getLatest(usdjpy) || 150;
+            const usdjpyPrev = getLatest(usdjpy, 5) || 150;
+
+            // Component scores (0-100 scale, higher = more stress)
+            
+            // 1. VIX Score (15%)
+            let vixScore;
+            if (vixVal < 15) vixScore = vixVal * 1.33;
+            else if (vixVal < 25) vixScore = 20 + (vixVal - 15) * 3;
+            else if (vixVal < 35) vixScore = 50 + (vixVal - 25) * 3;
+            else vixScore = 80 + Math.min(20, (vixVal - 35) * 2);
+
+            // 2. Credit Spread HY-IG (20%)
+            const creditSpread = hyVal - igVal;
+            let creditScore;
+            if (creditSpread < 2) creditScore = creditSpread * 10;
+            else if (creditSpread < 3.5) creditScore = 20 + (creditSpread - 2) * 20;
+            else if (creditSpread < 5) creditScore = 50 + (creditSpread - 3.5) * 20;
+            else creditScore = 80 + Math.min(20, (creditSpread - 5) * 10);
+
+            // 3. SOFR-EFFR Spread (15%)
+            const fundingSpread = Math.abs(sofrVal - effrVal);
+            let fundingScore;
+            if (fundingSpread < 0.05) fundingScore = fundingSpread * 400;
+            else if (fundingSpread < 0.1) fundingScore = 20 + (fundingSpread - 0.05) * 600;
+            else if (fundingSpread < 0.2) fundingScore = 50 + (fundingSpread - 0.1) * 300;
+            else fundingScore = 80 + Math.min(20, (fundingSpread - 0.2) * 100);
+
+            // 4. DXY Momentum (15%)
+            const dxyChange = ((dxyVal / dxyPrev) - 1) * 100;
+            let dxyScore;
+            if (dxyChange < 0) dxyScore = Math.abs(dxyChange) * 8;
+            else if (dxyChange < 1) dxyScore = 10 + dxyChange * 20;
+            else if (dxyChange < 2) dxyScore = 30 + (dxyChange - 1) * 30;
+            else if (dxyChange < 3) dxyScore = 60 + (dxyChange - 2) * 25;
+            else dxyScore = 85 + Math.min(15, (dxyChange - 3) * 10);
+
+            // 5. Yield Curve 2Y-10Y (15%)
+            const yieldSpread = dgs10Val - dgs2Val;
+            let curveScore;
+            if (yieldSpread > 0.5) curveScore = 10;
+            else if (yieldSpread > 0) curveScore = 10 + (0.5 - yieldSpread) * 40;
+            else if (yieldSpread > -0.5) curveScore = 30 + Math.abs(yieldSpread) * 60;
+            else if (yieldSpread > -1) curveScore = 60 + (Math.abs(yieldSpread) - 0.5) * 40;
+            else curveScore = 80 + Math.min(20, (Math.abs(yieldSpread) - 1) * 20);
+
+            // 6. VIX Term Structure (10%)
+            const vixRatio = vixVal / vix3mVal;
+            let termScore;
+            if (vixRatio < 0.9) termScore = 10;
+            else if (vixRatio < 1.0) termScore = 10 + (vixRatio - 0.9) * 200;
+            else if (vixRatio < 1.1) termScore = 30 + (vixRatio - 1.0) * 400;
+            else termScore = 70 + Math.min(30, (vixRatio - 1.1) * 150);
+
+            // 7. JPY Carry Risk (10%): Yen strengthening = carry unwind risk
+            const jpyChange = ((usdjpyVal / usdjpyPrev) - 1) * 100;  // Negative = yen stronger
+            let jpyScore;
+            if (jpyChange > 1) jpyScore = 10;  // Yen weakening = calm
+            else if (jpyChange > 0) jpyScore = 10 + (1 - jpyChange) * 15;
+            else if (jpyChange > -1) jpyScore = 25 + Math.abs(jpyChange) * 25;
+            else if (jpyChange > -2) jpyScore = 50 + (Math.abs(jpyChange) - 1) * 25;
+            else if (jpyChange > -3) jpyScore = 75 + (Math.abs(jpyChange) - 2) * 15;
+            else jpyScore = 90 + Math.min(10, (Math.abs(jpyChange) - 3) * 5);
+
+            const components = {
+                vix: { name: 'VIX', value: vixVal, score: vixScore, weight: 0.15 },
+                credit: { name: 'Credit Spread', value: creditSpread, score: creditScore, weight: 0.20 },
+                funding: { name: 'SOFR-EFFR', value: fundingSpread * 100, score: fundingScore, weight: 0.15 },
+                dxy: { name: 'DXY Momentum', value: dxyChange, score: dxyScore, weight: 0.15 },
+                curve: { name: '2Y-10Y Spread', value: yieldSpread, score: curveScore, weight: 0.15 },
+                term: { name: 'VIX Term', value: vixRatio, score: termScore, weight: 0.10 },
+                jpy: { name: 'JPY Carry Risk', value: jpyChange, score: jpyScore, weight: 0.10 }
+            };
+
+            let dlsi = 0;
+            for (const k in components) dlsi += components[k].score * components[k].weight;
+
+            // Build history
+            const history = [];
+            const vixMap = new Map(vix.map(d => [d.date, d.value]));
+            const hyMap = new Map(hySpread.map(d => [d.date, d.value]));
+            const igMap = new Map(igSpread.map(d => [d.date, d.value]));
+            const jpyMap = new Map(usdjpy.map(d => [d.date, d.value]));
+            
+            const start = Math.max(0, vix.length - 90);
+            for (let i = start + 5; i < vix.length; i++) {
+                const date = vix[i].date;
+                const v = vix[i].value;
+                const hy = getValueForDate(hyMap, date) || 4;
+                const ig = getValueForDate(igMap, date) || 1;
+                const jpyCurr = getValueForDate(jpyMap, date) || 150;
+                const jpyPrevDate = vix[i - 5]?.date;
+                const jpyPrevVal = jpyPrevDate ? (getValueForDate(jpyMap, jpyPrevDate) || 150) : 150;
+                const jpyChg = ((jpyCurr / jpyPrevVal) - 1) * 100;
+                
+                // Component scores for history
+                let vS = v < 15 ? v * 1.33 : v < 25 ? 20 + (v - 15) * 3 : v < 35 ? 50 + (v - 25) * 3 : 80 + Math.min(20, (v - 35) * 2);
+                let cS = (hy - ig) < 2 ? (hy - ig) * 10 : (hy - ig) < 3.5 ? 20 + ((hy - ig) - 2) * 20 : 50 + Math.min(50, ((hy - ig) - 3.5) * 20);
+                let jS = jpyChg > 1 ? 10 : jpyChg > 0 ? 15 : jpyChg > -1 ? 25 + Math.abs(jpyChg) * 25 : jpyChg > -2 ? 50 + (Math.abs(jpyChg) - 1) * 25 : 75 + Math.min(25, (Math.abs(jpyChg) - 2) * 12);
+                
+                // Weighted average
+                const histVal = vS * 0.15 + cS * 0.20 + jS * 0.10 + 30 * 0.55;
+                history.push({ date, value: Math.min(100, Math.max(0, histVal)) });
+            }
+
+            return { value: dlsi, components, history };
+        }
+
+        // LII Calculation
+        function calculateLII(data) {
+            const tga = data.TGA_DAILY || data.TGA || [];
+            const reserves = data.RESERVES || [];
+            const rrp = data.RRP || [];
+            const walcl = data.WALCL || [];
+            const foreignRepo = data.FOREIGN_REPO || [];
+            const bankBorrowing = data.BANK_BORROWING || [];
+            
+            if (tga.length < MOMENTUM_PERIOD + 1) return { value: 0, components: {}, history: [] };
+
+            const rMap = new Map(reserves.map(d => [d.date, d.value]));
+            const rrMap = new Map(rrp.map(d => [d.date, d.value]));
+            const wMap = new Map(walcl.map(d => [d.date, d.value]));
+            const fMap = new Map(foreignRepo.map(d => [d.date, d.value]));
+            const bMap = new Map(bankBorrowing.map(d => [d.date, d.value]));
+
+            const cIdx = tga.length - 1, pIdx = cIdx - MOMENTUM_PERIOD;
+            const cDate = tga[cIdx].date, pDate = tga[pIdx].date;
+
+            const tC = tga[cIdx].value, tP = tga[pIdx].value;
+            const rC = getValueForDate(rMap, cDate), rP = getValueForDate(rMap, pDate);
+            const rrC = getValueForDate(rrMap, cDate), rrP = getValueForDate(rrMap, pDate);
+            const wC = getValueForDate(wMap, cDate), wP = getValueForDate(wMap, pDate);
+            const fC = getValueForDate(fMap, cDate), fP = getValueForDate(fMap, pDate);
+            const bC = getValueForDate(bMap, cDate);
+
+            const nlC = rC + rrC - tC, nlP = rP + rrP - tP, nlChg = nlC - nlP;
+
+            const components = {
+                netLiquidity: { name: 'Net Liquidity', change: nlChg, score: normalizeScore(nlChg, 50000), weight: 0.50 },
+                fedFlow: { name: 'Fed Balance', change: wC - wP, score: normalizeScore(wC - wP, 20000), weight: 0.20 },
+                treasuryFlow: { name: 'Treasury Flow', change: -(tC - tP), score: normalizeScore(-(tC - tP), 30000), weight: 0.15 },
+                foreignRepo: { name: 'Foreign Repo', change: -(fC - fP), score: normalizeScore(-(fC - fP), 10000), weight: 0.10 },
+                bankStress: { name: 'Bank Stress', change: bC, score: -(bC > 10000 ? Math.min(100, bC / 1000) : 0), weight: 0.05 }
+            };
+
+            let lii = 0;
+            for (const k in components) lii += components[k].score * components[k].weight;
+
+            // History
+            const history = [];
+            const start = Math.max(0, tga.length - 60 - MOMENTUM_PERIOD);
+            for (let i = start + MOMENTUM_PERIOD; i < tga.length; i++) {
+                const cd = tga[i].date, pd = tga[i - MOMENTUM_PERIOD]?.date;
+                if (!pd) continue;
+                const tc = tga[i].value, tp = tga[i - MOMENTUM_PERIOD].value;
+                const rc = getValueForDate(rMap, cd), rp = getValueForDate(rMap, pd);
+                const rrc = getValueForDate(rrMap, cd), rrp2 = getValueForDate(rrMap, pd);
+                const wc = getValueForDate(wMap, cd), wp = getValueForDate(wMap, pd);
+                const fc = getValueForDate(fMap, cd), fp = getValueForDate(fMap, pd);
+                const bc = getValueForDate(bMap, cd);
+
+                const nlc = rc + rrc - tc, nlp = rp + rrp2 - tp;
+                const s1 = normalizeScore(nlc - nlp, 50000) * 0.50;
+                const s2 = normalizeScore(wc - wp, 20000) * 0.20;
+                const s3 = normalizeScore(-(tc - tp), 30000) * 0.15;
+                const s4 = normalizeScore(-(fc - fp), 10000) * 0.10;
+                const s5 = (bc > 10000 ? -Math.min(100, bc / 1000) : 0) * 0.05;
+                history.push({ date: cd, value: s1 + s2 + s3 + s4 + s5 });
+            }
+
+            return { value: lii, components, history };
+        }
+
+        // IELG Calculation
+        // IELG v2 Calculation - 10 componentes en 3 tiers
+        function calculateIELG(data) {
+            const tga = data.TGA_DAILY || data.TGA || [];
+            const reserves = data.RESERVES || [];
+            const rrp = data.RRP || [];
+            const sofr = data.SOFR || [];
+            const effr = data.EFFR || [];
+            const dgs10 = data.DGS10 || [];
+            const usdjpy = data.USDJPY || [];
+            const hySpread = data.HY_SPREAD || [];
+            const vix = data.VIX || [];
+
+            if (reserves.length === 0) return { value: 0, components: {}, history: [] };
+
+            // Build maps
+            const rMap = new Map(reserves.map(d => [d.date, d.value]));
+            const rrMap = new Map(rrp.map(d => [d.date, d.value]));
+            const tMap = new Map(tga.map(d => [d.date, d.value]));
+
+            // Get latest values
+            const latestDate = tga.length > 0 ? tga[tga.length - 1].date : reserves[reserves.length - 1].date;
+            const r = getValueForDate(rMap, latestDate);
+            const rr = getValueForDate(rrMap, latestDate);
+            const t = getValueForDate(tMap, latestDate);
+            
+            // Net Liquidity
+            const nl = r + rr - t;
+            const nlT = nl / 1000000;  // Trillions
+
+            // 30-day momentum (approximated with available data)
+            const date30Ago = reserves.length > 4 ? reserves[reserves.length - 5].date : null;
+            const r30 = date30Ago ? getValueForDate(rMap, date30Ago) : r;
+            const rr30 = date30Ago ? getValueForDate(rrMap, date30Ago) : rr;
+            const t30 = date30Ago ? getValueForDate(tMap, date30Ago) : t;
+            const nlT30 = (r30 + rr30 - t30) / 1000000;
+            const momentum = (nlT - nlT30) * 12;  // Annualized
+
+            // Reserve Adequacy
+            const resAdq = r / 3000000;
+
+            // SOFR-EFFR Spread
+            const sofrVal = getLatest(sofr) || 5;
+            const effrVal = getLatest(effr) || 5;
+            const sofrSpread = Math.abs(sofrVal - effrVal) * 100;  // bps
+
+            // Treasury Volatility (10Y, proxy for MOVE)
+            let treasuryVol = 50;
+            let moveProxy = 90;
+            if (dgs10.length >= 20) {
+                const last20 = dgs10.slice(-20).map(x => x.value);
+                const mean = last20.reduce((a,b) => a+b, 0) / 20;
+                const variance = last20.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / 20;
+                const vol = Math.sqrt(variance) * Math.sqrt(252) * 100;
+                treasuryVol = vol;
+                moveProxy = 60 + vol * 2;
+            }
+
+            // Yen Risk
+            const jpyVal = getLatest(usdjpy) || 150;
+            const jpyPrev = usdjpy.length > 21 ? usdjpy[usdjpy.length - 22]?.value || jpyVal : jpyVal;
+            const jpyChange = ((jpyVal - jpyPrev) / jpyPrev) * 100;
+
+            // HY Spread
+            const hyVal = getLatest(hySpread) || 4;
+            const hyBps = hyVal * 100;
+
+            // VIX Term (approx)
+            const vixVal = getLatest(vix) || 15;
+            const vixMa = vix.length >= 20 ? vix.slice(-20).reduce((a,b) => a + b.value, 0) / 20 : vixVal;
+            const vixTerm = vixVal / vixMa;
+
+            // Policy Expectations (EFFR trend)
+            const effr90 = effr.length > 63 ? effr[effr.length - 64]?.value || effrVal : effrVal;
+            const policyChange = (effrVal - effr90) * 100;
+
+            // === SCORING FUNCTIONS ===
+            
+            // Net Liquidity: >$3.5T=excellent, <$2T=crisis
+            function scoreNetLiq(nlT) {
+                if (nlT > 3.5) return 10;
+                if (nlT > 3.2) return 20 + (3.5 - nlT) * 33;
+                if (nlT > 2.8) return 30 + (3.2 - nlT) * 50;
+                if (nlT > 2.5) return 50 + (2.8 - nlT) * 67;
+                if (nlT > 2.0) return 70 + (2.5 - nlT) * 40;
+                return 90 + Math.min(10, (2.0 - nlT) * 20);
+            }
+
+            // Momentum: positive=good, negative=bad
+            function scoreMom(m) {
+                if (m > 0.5) return 10;
+                if (m > 0.2) return 20 + (0.5 - m) * 33;
+                if (m > 0) return 30 + (0.2 - m) * 100;
+                if (m > -0.2) return 50 + Math.abs(m) * 100;
+                if (m > -0.5) return 70 + (Math.abs(m) - 0.2) * 33;
+                return 80 + Math.min(20, (Math.abs(m) - 0.5) * 40);
+            }
+
+            // Reserve Adequacy
+            function scoreResAdq(ra) {
+                if (ra > 1.1) return 12;
+                if (ra > 1.0) return 25 + (1.1 - ra) * 130;
+                if (ra > 0.9) return 38 + (1.0 - ra) * 170;
+                if (ra > 0.8) return 55 + (0.9 - ra) * 200;
+                return 75 + Math.min(25, (0.8 - ra) * 250);
+            }
+
+            // SOFR Spread: 0=good, >10bps=stress
+            function scoreSofr(s) {
+                if (s < 2) return 10;
+                if (s < 5) return 20 + (s - 2) * 10;
+                if (s < 10) return 50 + (s - 5) * 6;
+                if (s < 20) return 80 + (s - 10) * 1;
+                return 90 + Math.min(10, (s - 20) * 0.5);
+            }
+
+            // MOVE proxy
+            function scoreMove(m) {
+                if (m < 80) return 15;
+                if (m < 100) return 25 + (m - 80) * 1.25;
+                if (m < 120) return 50 + (m - 100) * 1.25;
+                if (m < 150) return 75 + (m - 120) * 0.5;
+                return 90 + Math.min(10, (m - 150) * 0.2);
+            }
+
+            // Treasury Vol
+            function scoreTVol(v) {
+                if (v < 30) return 15;
+                if (v < 50) return 25 + (v - 30) * 1.25;
+                if (v < 80) return 50 + (v - 50) * 0.83;
+                return 75 + Math.min(25, (v - 80) * 0.5);
+            }
+
+            // Yen Risk
+            function scoreYen(level, chg) {
+                let base;
+                if (level > 155) base = 15;
+                else if (level > 145) base = 30;
+                else if (level > 140) base = 50;
+                else if (level > 135) base = 70;
+                else base = 85;
+                
+                let penalty = 0;
+                if (chg < -5) penalty = 20;
+                else if (chg < -3) penalty = 10;
+                else if (chg < -1) penalty = 5;
+                
+                return Math.min(100, base + penalty);
+            }
+
+            // HY Spread
+            function scoreHY(bps) {
+                if (bps < 300) return 15;
+                if (bps < 400) return 25 + (bps - 300) * 0.25;
+                if (bps < 500) return 50 + (bps - 400) * 0.2;
+                if (bps < 700) return 70 + (bps - 500) * 0.1;
+                return 90 + Math.min(10, (bps - 700) * 0.05);
+            }
+
+            // VIX Term
+            function scoreVixT(ratio) {
+                if (ratio < 0.9) return 15;
+                if (ratio < 1.0) return 25 + (ratio - 0.9) * 200;
+                if (ratio < 1.1) return 45 + (ratio - 1.0) * 200;
+                if (ratio < 1.2) return 65 + (ratio - 1.1) * 150;
+                return 80 + Math.min(20, (ratio - 1.2) * 100);
+            }
+
+            // Policy
+            function scorePolicy(chg) {
+                if (chg > 25) return 15;  // Hikes = hawkish but controlled
+                if (chg > 0) return 25;
+                if (chg > -25) return 40;
+                if (chg > -50) return 55;
+                if (chg > -100) return 70;
+                return 85;  // Aggressive cuts = panic
+            }
+
+            // Calculate all scores
+            const scores = {
+                netLiquidity: { name: 'Net Liquidity', value: nlT, score: scoreNetLiq(nlT), weight: 0.25, tier: 1 },
+                momentum: { name: 'Liq. Momentum', value: momentum, score: scoreMom(momentum), weight: 0.15, tier: 1 },
+                reserveAdequacy: { name: 'Reserve Adequacy', value: resAdq * 100, score: scoreResAdq(resAdq), weight: 0.10, tier: 1 },
+                sofrSpread: { name: 'SOFR-EFFR', value: sofrSpread, score: scoreSofr(sofrSpread), weight: 0.10, tier: 2 },
+                move: { name: 'MOVE Proxy', value: moveProxy, score: scoreMove(moveProxy), weight: 0.08, tier: 2 },
+                treasuryVol: { name: 'Treasury Vol', value: treasuryVol, score: scoreTVol(treasuryVol), weight: 0.07, tier: 2 },
+                yenRisk: { name: 'Yen Risk', value: jpyVal, change: jpyChange, score: scoreYen(jpyVal, jpyChange), weight: 0.08, tier: 3 },
+                hySpread: { name: 'HY Spread', value: hyBps, score: scoreHY(hyBps), weight: 0.07, tier: 3 },
+                vixTerm: { name: 'VIX Term', value: vixTerm, score: scoreVixT(vixTerm), weight: 0.05, tier: 3 },
+                policy: { name: 'Policy Signal', value: policyChange, score: scorePolicy(policyChange), weight: 0.05, tier: 3 }
+            };
+
+            // Calculate IELG
+            let ielg = 0;
+            for (const k in scores) {
+                ielg += scores[k].score * scores[k].weight;
+            }
+
+            // History (simplified, based on net liquidity)
+            const history = [];
+            const base = tga.length > 0 ? tga : reserves;
+            const start = Math.max(0, base.length - 60);
+            for (let i = start; i < base.length; i++) {
+                const d = base[i].date;
+                const rv = getValueForDate(rMap, d);
+                const rrv = getValueForDate(rrMap, d);
+                const tv = getValueForDate(tMap, d);
+                const nlv = (rv + rrv - tv) / 1000000;
+                const s = scoreNetLiq(nlv);
+                history.push({ date: d, value: s });
+            }
+
+            return { value: ielg, components: scores, history };
+        }
+
+        // Rendering
+        function getIELGClass(v) { return v < 30 ? 'low' : v < 70 ? 'mid' : 'high'; }
+        function getLIIClass(v) { return v > 20 ? 'bull' : v < -20 ? 'bear' : 'flat'; }
+        function getDLSIClass(v) { return v < 30 ? 'low' : v < 60 ? 'mid' : 'high'; }
+
+        function render() {
+            const { ielg, lii, dlsi } = state;
+
+            // DLSI
+            const dc = getDLSIClass(dlsi.value);
+            document.getElementById('dlsiValue').textContent = dlsi.value.toFixed(1);
+            document.getElementById('dlsiValue').className = `index-value ${dc}`;
+            document.getElementById('dlsiStatusText').textContent = dlsi.value < 20 ? 'Calma' : dlsi.value < 40 ? 'Normal' : dlsi.value < 60 ? 'Elevado' : dlsi.value < 80 ? 'Alto' : 'Extremo';
+            document.getElementById('dlsiStatusBadge').textContent = dc === 'low' ? 'LOW' : dc === 'mid' ? 'MID' : 'HIGH';
+            document.getElementById('dlsiStatusBadge').style.background = dc === 'low' ? 'var(--accent-green)' : dc === 'mid' ? 'var(--accent-yellow)' : 'var(--accent-red)';
+            document.getElementById('dlsiStatusBadge').style.color = dc === 'high' ? '#fff' : '#000';
+            document.getElementById('dlsiBadge').textContent = dlsi.value.toFixed(0);
+            document.getElementById('dlsiBadge').className = `badge ${dc}`;
+
+            // IELG
+            const ic = getIELGClass(ielg.value);
+            document.getElementById('ielgValue').textContent = ielg.value.toFixed(1);
+            document.getElementById('ielgValue').className = `index-value ${ic}`;
+            document.getElementById('ielgStatusText').textContent = ielg.value < 30 ? 'Normal' : ielg.value < 50 ? 'Elevado' : ielg.value < 70 ? 'Alto' : 'Crítico';
+            document.getElementById('ielgStatusBadge').textContent = ic === 'low' ? 'LOW' : ic === 'mid' ? 'MID' : 'HIGH';
+            document.getElementById('ielgStatusBadge').style.background = ic === 'low' ? 'var(--accent-green)' : ic === 'mid' ? 'var(--accent-yellow)' : 'var(--accent-red)';
+            document.getElementById('ielgStatusBadge').style.color = ic === 'high' ? '#fff' : '#000';
+            document.getElementById('ielgBadge').textContent = ielg.value.toFixed(0);
+            document.getElementById('ielgBadge').className = `badge ${ic}`;
+
+            // LII
+            const lc = getLIIClass(lii.value);
+            document.getElementById('liiValue').textContent = (lii.value >= 0 ? '+' : '') + lii.value.toFixed(1);
+            document.getElementById('liiValue').className = `index-value ${lc}`;
+            document.getElementById('liiStatusText').textContent = lii.value > 20 ? 'Expansión' : lii.value < -20 ? 'Contracción' : 'Neutral';
+            document.getElementById('liiStatusBadge').textContent = lc === 'bull' ? 'BULL' : lc === 'bear' ? 'BEAR' : 'FLAT';
+            document.getElementById('liiStatusBadge').style.background = lc === 'bull' ? 'var(--accent-green)' : lc === 'bear' ? 'var(--accent-red)' : 'var(--accent-yellow)';
+            document.getElementById('liiStatusBadge').style.color = lc === 'bear' ? '#fff' : '#000';
+            document.getElementById('liiBadge').textContent = (lii.value >= 0 ? '+' : '') + lii.value.toFixed(0);
+            document.getElementById('liiBadge').className = `badge ${lc}`;
+
+            // Interpretation (3 indices)
+            const box = document.getElementById('interpBox');
+            let txt;
+            if (dlsi.value < 30 && ielg.value < 30 && lii.value > 20) {
+                txt = `<strong>🚀 Condiciones óptimas.</strong> Bajo estrés diario (DLSI: ${dlsi.value.toFixed(0)}) + macro sano (IELG: ${ielg.value.toFixed(0)}) + liquidez expandiendo (LII: +${lii.value.toFixed(0)}). Muy favorable para risk assets.`;
+                box.className = 'interpretation-box bullish';
+            } else if (dlsi.value > 60 || ielg.value > 60 || lii.value < -30) {
+                txt = `<strong>⚠️ Alerta.</strong> Estrés detectado - DLSI: ${dlsi.value.toFixed(0)} | IELG: ${ielg.value.toFixed(0)} | LII: ${lii.value >= 0 ? '+' : ''}${lii.value.toFixed(0)}. Cautela recomendada.`;
+                box.className = 'interpretation-box bearish';
+            } else if (dlsi.value > 40 && lii.value < 0) {
+                txt = `<strong>📉 Deterioro.</strong> Estrés diario subiendo + liquidez contrayendo. Monitorear de cerca.`;
+                box.className = 'interpretation-box bearish';
+            } else if (dlsi.value < 30 && lii.value < -10) {
+                txt = `<strong>🔄 Divergencia.</strong> Mercados calmos pero liquidez saliendo. Posible señal adelantada.`;
+                box.className = 'interpretation-box';
+            } else {
+                txt = `<strong>⚖️ Mixto.</strong> DLSI: ${dlsi.value.toFixed(0)} | IELG: ${ielg.value.toFixed(0)} | LII: ${lii.value >= 0 ? '+' : ''}${lii.value.toFixed(0)}. Sin señal clara.`;
+                box.className = 'interpretation-box';
+            }
+            document.getElementById('interpText').innerHTML = txt;
+
+            // Charts
+            renderChart('dlsiChart', dlsi.history, '#ff9800', 0, 100);
+            renderChart('ielgChart', ielg.history, '#8b5cf6', 0, 100);
+            renderChart('liiChart', lii.history, '#00c8ff', -80, 80);
+
+            // Section Charts (with individual scale controls)
+            renderSectionChart('dlsi');
+            renderSectionChart('ielg');
+            renderSectionChart('lii');
+
+            // Components
+            renderDLSIComponents();
+            renderLIIComponents();
+            renderIELGComponents();
+            
+            // Setup section scale controls
+            setupSectionScaleControls();
+        }
+
+        // Section chart scales
+        const sectionScales = {
+            dlsi: { min: 0, max: 100 },
+            ielg: { min: 0, max: 100 },
+            lii: { min: -80, max: 80 }
+        };
+
+        function renderSectionChart(type) {
+            const canvasId = `${type}SectionChart`;
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+            
+            const data = state[type]?.history || [];
+            if (data.length === 0) return;
+            
+            const scales = sectionScales[type];
+            const colors = {
+                dlsi: { line: '#ff9800', bg: 'rgba(255, 152, 0, 0.15)' },
+                ielg: { line: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)' },
+                lii: { line: '#00c8ff', bg: 'rgba(0, 200, 255, 0.15)' }
+            };
+            
+            if (charts[canvasId]) charts[canvasId].destroy();
+            
+            const color = colors[type];
+            
+            charts[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.date),
+                    datasets: [{
+                        data: data.map(d => d.value),
+                        borderColor: color.line,
+                        backgroundColor: color.bg,
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        pointHoverBackgroundColor: color.line
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#0f1318',
+                            borderColor: '#2a3444',
+                            borderWidth: 1,
+                            titleColor: '#8892a0',
+                            bodyColor: '#e4e8f0',
+                            padding: 10,
+                            callbacks: {
+                                label: (ctx) => {
+                                    const val = ctx.raw;
+                                    if (type === 'lii') {
+                                        return `LII: ${val >= 0 ? '+' : ''}${val.toFixed(1)}`;
+                                    }
+                                    return `${type.toUpperCase()}: ${val.toFixed(1)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            grid: { color: 'rgba(255,255,255,0.03)' },
+                            ticks: { color: '#505868', maxTicksLimit: 10, font: { size: 10 } }
+                        },
+                        y: {
+                            min: scales.min,
+                            max: scales.max,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: {
+                                color: color.line,
+                                font: { size: 10 },
+                                callback: (v) => type === 'lii' && v > 0 ? '+' + v : v
+                            }
+                        }
+                    }
+                },
+                plugins: type === 'lii' ? [{
+                    id: 'zeroLine',
+                    beforeDraw: (chart) => {
+                        const ctx = chart.ctx;
+                        const yScale = chart.scales.y;
+                        const y = yScale.getPixelForValue(0);
+                        ctx.save();
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([4, 4]);
+                        ctx.beginPath();
+                        ctx.moveTo(chart.chartArea.left, y);
+                        ctx.lineTo(chart.chartArea.right, y);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                }] : []
+            });
+        }
+
+        function setupSectionScaleControls() {
+            ['dlsi', 'ielg', 'lii'].forEach(type => {
+                const minInput = document.getElementById(`${type}SectionMin`);
+                const maxInput = document.getElementById(`${type}SectionMax`);
+                
+                if (!minInput || !maxInput) return;
+                
+                const updateScale = () => {
+                    sectionScales[type].min = parseInt(minInput.value) || (type === 'lii' ? -80 : 0);
+                    sectionScales[type].max = parseInt(maxInput.value) || (type === 'lii' ? 80 : 100);
+                    renderSectionChart(type);
+                };
+                
+                minInput.addEventListener('change', updateScale);
+                maxInput.addEventListener('change', updateScale);
+            });
+        }
+
+        function resetSectionScale(type, min, max) {
+            sectionScales[type] = { min, max };
+            const minInput = document.getElementById(`${type}SectionMin`);
+            const maxInput = document.getElementById(`${type}SectionMax`);
+            if (minInput) minInput.value = min;
+            if (maxInput) maxInput.value = max;
+            renderSectionChart(type);
+        }
+
+        function renderChart(id, data, color, min, max) {
+            const ctx = document.getElementById(id);
+            if (!ctx || !data?.length) return;
+            if (charts[id]) charts[id].destroy();
+
+            charts[id] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.date),
+                    datasets: [{ data: data.map(d => d.value), borderColor: color, backgroundColor: color + '20', borderWidth: 2, fill: true, tension: 0.3, pointRadius: 0 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: true, grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#505868', maxTicksLimit: 6, font: { size: 9 } } },
+                        y: { min, max, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#505868', font: { size: 9 } } }
+                    }
+                }
+            });
+        }
+
+        function renderDLSIComponents() {
+            const grid = document.getElementById('dlsiGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            for (const k in state.dlsi.components) {
+                const c = state.dlsi.components[k];
+                const low = c.score < 40;
+                let valStr;
+                if (k === 'vix') valStr = c.value.toFixed(1);
+                else if (k === 'credit') valStr = c.value.toFixed(2) + '%';
+                else if (k === 'funding') valStr = c.value.toFixed(1) + ' bps';
+                else if (k === 'dxy') valStr = (c.value >= 0 ? '+' : '') + c.value.toFixed(2) + '%';
+                else if (k === 'curve') valStr = (c.value >= 0 ? '+' : '') + c.value.toFixed(2) + '%';
+                else if (k === 'term') valStr = c.value.toFixed(2) + 'x';
+                else if (k === 'jpy') valStr = (c.value >= 0 ? '+' : '') + c.value.toFixed(2) + '%';
+                else valStr = c.value?.toFixed(2) || 'N/A';
+                
+                grid.innerHTML += `<div class="component-card ${low ? 'positive' : 'negative'}">
+                    <div class="component-header"><span class="component-name">${c.name}</span><span class="component-weight">${(c.weight * 100)}%</span></div>
+                    <div class="component-value ${low ? 'positive' : 'negative'}">${valStr}</div>
+                    <div class="component-score">Stress: ${c.score.toFixed(0)}</div>
+                </div>`;
+            }
+        }
+
+        function renderLIIComponents() {
+            const grid = document.getElementById('liiGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            for (const k in state.lii.components) {
+                const c = state.lii.components[k];
+                const pos = c.score >= 0;
+                const chg = c.change !== null ? `${c.change >= 0 ? '+' : ''}${(c.change / 1000).toFixed(1)}B` : 'N/A';
+                grid.innerHTML += `<div class="component-card ${pos ? 'positive' : 'negative'}">
+                    <div class="component-header"><span class="component-name">${c.name}</span><span class="component-weight">${(c.weight * 100)}%</span></div>
+                    <div class="component-value ${pos ? 'positive' : 'negative'}">${chg}</div>
+                    <div class="component-score">Score: ${c.score >= 0 ? '+' : ''}${c.score.toFixed(1)}</div>
+                </div>`;
+            }
+        }
+
+        function renderIELGComponents() {
+            const grid = document.getElementById('ielgGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            
+            // Group by tier
+            const tiers = { 1: [], 2: [], 3: [] };
+            for (const k in state.ielg.components) {
+                const c = state.ielg.components[k];
+                c.key = k;
+                tiers[c.tier || 1].push(c);
+            }
+            
+            const tierNames = {
+                1: '📊 Tier 1: Liquidity Core (50%)',
+                2: '⚠️ Tier 2: Stress Signals (25%)',
+                3: '🌍 Tier 3: Global Factors (25%)'
+            };
+            
+            for (const tier of [1, 2, 3]) {
+                if (tiers[tier].length === 0) continue;
+                
+                grid.innerHTML += `<div class="tier-header">${tierNames[tier]}</div>`;
+                
+                for (const c of tiers[tier]) {
+                    const low = c.score < 50;
+                    let val;
+                    if (c.key === 'netLiquidity') val = `$${c.value.toFixed(2)}T`;
+                    else if (c.key === 'momentum') val = `${c.value >= 0 ? '+' : ''}${c.value.toFixed(2)}T/yr`;
+                    else if (c.key === 'reserveAdequacy') val = `${c.value.toFixed(0)}%`;
+                    else if (c.key === 'sofrSpread') val = `${c.value.toFixed(1)} bps`;
+                    else if (c.key === 'move' || c.key === 'treasuryVol') val = `${c.value.toFixed(0)}`;
+                    else if (c.key === 'yenRisk') val = `¥${c.value.toFixed(1)} (${c.change >= 0 ? '+' : ''}${c.change.toFixed(1)}%)`;
+                    else if (c.key === 'hySpread') val = `${c.value.toFixed(0)} bps`;
+                    else if (c.key === 'vixTerm') val = `${c.value.toFixed(2)}x`;
+                    else if (c.key === 'policy') val = `${c.value >= 0 ? '+' : ''}${c.value.toFixed(0)} bps`;
+                    else val = c.value?.toFixed(1) || 'N/A';
+                    
+                    grid.innerHTML += `<div class="component-card ${low ? 'positive' : 'negative'}">
+                        <div class="component-header"><span class="component-name">${c.name}</span><span class="component-weight">${(c.weight * 100).toFixed(0)}%</span></div>
+                        <div class="component-value ${low ? 'positive' : 'negative'}">${val}</div>
+                        <div class="component-score">Stress: ${c.score.toFixed(0)}</div>
+                    </div>`;
+                }
+            }
+        }
+
+        // TradingView & Analysis
+        let tvSymbol = 'AMEX:SPY';
+        let tvAssetName = 'S&P 500';
+        let analysisRange = 60;
+        
+        // Chart scales (interactive)
+        let chartScales = {
+            dlsiMin: 0,
+            dlsiMax: 100,
+            liiMin: -80,
+            liiMax: 80
+        };
+
+        function initTradingViewWidget() {
+            const el = document.getElementById('tradingview-widget');
+            if (!el) return;
+            el.innerHTML = '';
+            
+            // Update asset name
+            document.getElementById('tvAssetName').textContent = tvAssetName;
+            
+            new TradingView.widget({
+                autosize: true, 
+                symbol: tvSymbol, 
+                interval: 'D',  // Siempre diario para coincidir con nuestros datos
+                timezone: 'America/New_York',
+                theme: 'dark', 
+                style: '1', 
+                locale: 'es', 
+                toolbar_bg: '#0f1318',
+                enable_publishing: false, 
+                hide_top_toolbar: false, 
+                save_image: false,
+                container_id: 'tradingview-widget', 
+                backgroundColor: '#0f1318',
+                range: analysisRange <= 30 ? '1M' : analysisRange <= 60 ? '3M' : '6M'
+            });
+            
+            setTimeout(() => {
+                renderCombinedChart();
+                detectDivergences();
+                updateAnalysisInterpretation();
+            }, 500);
+        }
+
+        function renderCombinedChart() {
+            const ctx = document.getElementById('combinedLiquidityChart');
+            if (!ctx) return;
+            
+            if (charts['combinedLiquidityChart']) {
+                charts['combinedLiquidityChart'].destroy();
+            }
+            
+            // Get data limited by range
+            const dlsiData = state.dlsi.history.slice(-analysisRange);
+            const liiData = state.lii.history.slice(-analysisRange);
+            
+            // Align data by date
+            const dlsiMap = new Map(dlsiData.map(d => [d.date, d.value]));
+            const liiMap = new Map(liiData.map(d => [d.date, d.value]));
+            
+            // Get all dates
+            const allDates = [...new Set([...dlsiData.map(d => d.date), ...liiData.map(d => d.date)])].sort();
+            const labels = allDates.slice(-analysisRange);
+            
+            const dlsiValues = labels.map(d => dlsiMap.get(d) || null);
+            const liiValues = labels.map(d => liiMap.get(d) || null);
+            
+            // Detect divergence points
+            const divergencePoints = [];
+            for (let i = 5; i < labels.length; i++) {
+                const dlsiCurrent = dlsiValues[i];
+                const dlsiPrev = dlsiValues[i - 5];
+                const liiCurrent = liiValues[i];
+                const liiPrev = liiValues[i - 5];
+                
+                if (dlsiCurrent && dlsiPrev && liiCurrent && liiPrev) {
+                    const dlsiTrend = dlsiCurrent - dlsiPrev;
+                    const liiTrend = liiCurrent - liiPrev;
+                    
+                    // Divergence: DLSI up + LII down or vice versa
+                    if ((dlsiTrend > 5 && liiTrend < -5) || (dlsiTrend < -5 && liiTrend > 5)) {
+                        divergencePoints.push(i);
+                    }
+                }
+            }
+            
+            charts['combinedLiquidityChart'] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'DLSI',
+                            data: dlsiValues,
+                            borderColor: '#ff9800',
+                            backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                            borderWidth: 2.5,
+                            fill: false,
+                            tension: 0.3,
+                            pointRadius: divergencePoints.map((_, i) => divergencePoints.includes(i) ? 6 : 0),
+                            pointBackgroundColor: '#ff9800',
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'LII',
+                            data: liiValues,
+                            borderColor: '#00c8ff',
+                            backgroundColor: 'rgba(0, 200, 255, 0.1)',
+                            borderWidth: 2.5,
+                            fill: false,
+                            tension: 0.3,
+                            pointRadius: 0,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#0f1318',
+                            borderColor: '#2a3444',
+                            borderWidth: 1,
+                            titleColor: '#8892a0',
+                            bodyColor: '#e4e8f0',
+                            padding: 12,
+                            displayColors: true,
+                            callbacks: {
+                                title: (items) => items[0]?.label || '',
+                                label: (ctx) => {
+                                    const val = ctx.raw;
+                                    if (val === null) return null;
+                                    if (ctx.dataset.label === 'DLSI') {
+                                        return `DLSI: ${val.toFixed(1)} (${val < 30 ? 'bajo' : val < 60 ? 'moderado' : 'alto'})`;
+                                    } else {
+                                        return `LII: ${val >= 0 ? '+' : ''}${val.toFixed(1)} (${val > 20 ? 'expansión' : val < -20 ? 'contracción' : 'neutral'})`;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            grid: { color: 'rgba(255,255,255,0.03)' },
+                            ticks: { 
+                                color: '#505868', 
+                                maxTicksLimit: 8,
+                                font: { size: 10 }
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            min: chartScales.dlsiMin,
+                            max: chartScales.dlsiMax,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { 
+                                color: '#ff9800',
+                                font: { size: 10 },
+                                callback: (v) => v
+                            },
+                            title: {
+                                display: true,
+                                text: 'DLSI',
+                                color: '#ff9800',
+                                font: { size: 10 }
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            min: chartScales.liiMin,
+                            max: chartScales.liiMax,
+                            grid: { drawOnChartArea: false },
+                            ticks: { 
+                                color: '#00c8ff',
+                                font: { size: 10 },
+                                callback: (v) => v === 0 ? '0' : (v > 0 ? '+' + v : v)
+                            },
+                            title: {
+                                display: true,
+                                text: 'LII',
+                                color: '#00c8ff',
+                                font: { size: 10 }
+                            }
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'zeroLine',
+                    beforeDraw: (chart) => {
+                        const ctx = chart.ctx;
+                        const yScale = chart.scales.y1;
+                        const y = yScale.getPixelForValue(0);
+                        
+                        ctx.save();
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([4, 4]);
+                        ctx.beginPath();
+                        ctx.moveTo(chart.chartArea.left, y);
+                        ctx.lineTo(chart.chartArea.right, y);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                }]
+            });
+        }
+
+        function detectDivergences() {
+            const dlsiData = state.dlsi.history.slice(-analysisRange);
+            const liiData = state.lii.history.slice(-analysisRange);
+            
+            const dlsiMap = new Map(dlsiData.map(d => [d.date, d.value]));
+            const liiMap = new Map(liiData.map(d => [d.date, d.value]));
+            
+            const divergences = [];
+            const dates = [...new Set([...dlsiData.map(d => d.date), ...liiData.map(d => d.date)])].sort();
+            
+            for (let i = 5; i < dates.length; i++) {
+                const date = dates[i];
+                const prevDate = dates[i - 5];
+                
+                const dlsiCurrent = dlsiMap.get(date);
+                const dlsiPrev = dlsiMap.get(prevDate);
+                const liiCurrent = liiMap.get(date);
+                const liiPrev = liiMap.get(prevDate);
+                
+                if (dlsiCurrent && dlsiPrev && liiCurrent && liiPrev) {
+                    const dlsiTrend = dlsiCurrent - dlsiPrev;
+                    const liiTrend = liiCurrent - liiPrev;
+                    
+                    // Bullish divergence: DLSI down + LII up
+                    if (dlsiTrend < -5 && liiTrend > 10) {
+                        divergences.push({
+                            date,
+                            type: 'bullish',
+                            icon: '📈',
+                            desc: 'Estrés bajando + liquidez subiendo',
+                            dlsi: dlsiCurrent,
+                            lii: liiCurrent
+                        });
+                    }
+                    // Bearish divergence: DLSI up + LII down
+                    else if (dlsiTrend > 5 && liiTrend < -10) {
+                        divergences.push({
+                            date,
+                            type: 'bearish',
+                            icon: '📉',
+                            desc: 'Estrés subiendo + liquidez bajando',
+                            dlsi: dlsiCurrent,
+                            lii: liiCurrent
+                        });
+                    }
+                }
+            }
+            
+            // Show only last 5 divergences
+            const recentDivergences = divergences.slice(-5).reverse();
+            const list = document.getElementById('divergenceList');
+            
+            if (recentDivergences.length === 0) {
+                list.innerHTML = '<div class="no-divergences">No se detectaron divergencias significativas en este período</div>';
+            } else {
+                list.innerHTML = recentDivergences.map(d => `
+                    <div class="divergence-item ${d.type}">
+                        <div class="divergence-icon">${d.icon}</div>
+                        <div class="divergence-date">${d.date}</div>
+                        <div class="divergence-desc">${d.desc}</div>
+                        <div class="divergence-values">
+                            <span style="color: #ff9800;">DLSI: ${d.dlsi.toFixed(0)}</span>
+                            <span style="color: #00c8ff;">LII: ${d.lii >= 0 ? '+' : ''}${d.lii.toFixed(0)}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function updateAnalysisInterpretation() {
+            const dlsi = state.dlsi.value;
+            const lii = state.lii.value;
+            const box = document.getElementById('analysisInterpBox');
+            const text = document.getElementById('analysisInterpText');
+            
+            let interp = '';
+            if (dlsi < 30 && lii > 20) {
+                interp = `<strong>🚀 Condiciones óptimas.</strong> DLSI bajo (${dlsi.toFixed(0)}) + LII positivo (+${lii.toFixed(0)}). Bajo estrés con liquidez expandiendo. Favorable para risk assets.`;
+                box.className = 'interpretation-box bullish';
+            } else if (dlsi > 60 && lii < -20) {
+                interp = `<strong>⚠️ Alerta máxima.</strong> DLSI alto (${dlsi.toFixed(0)}) + LII negativo (${lii.toFixed(0)}). Estrés elevado con liquidez contrayendo. Máxima cautela.`;
+                box.className = 'interpretation-box bearish';
+            } else if (dlsi > 50 && lii > 0) {
+                interp = `<strong>🔄 Divergencia positiva.</strong> DLSI elevado (${dlsi.toFixed(0)}) pero LII mejorando (+${lii.toFixed(0)}). Posible punto de inflexión - monitorear de cerca.`;
+                box.className = 'interpretation-box';
+            } else if (dlsi < 40 && lii < -10) {
+                interp = `<strong>📉 Divergencia negativa.</strong> DLSI bajo (${dlsi.toFixed(0)}) pero LII cayendo (${lii.toFixed(0)}). La liquidez empieza a contraer antes del estrés visible.`;
+                box.className = 'interpretation-box';
+            } else {
+                interp = `<strong>⚖️ Condiciones mixtas.</strong> DLSI: ${dlsi.toFixed(0)} | LII: ${lii >= 0 ? '+' : ''}${lii.toFixed(0)}. Sin señal clara dominante.`;
+                box.className = 'interpretation-box';
+            }
+            text.innerHTML = interp;
+        }
+
+        // Asset selector
+        document.querySelectorAll('.control-btn[data-symbol]').forEach(b => {
+            b.addEventListener('click', () => {
+                document.querySelectorAll('.control-btn[data-symbol]').forEach(x => x.classList.remove('active'));
+                b.classList.add('active');
+                tvSymbol = b.dataset.symbol;
+                tvAssetName = b.textContent.trim();
+                initTradingViewWidget();
+            });
+        });
+
+        // Range selector
+        document.querySelectorAll('.control-btn[data-range]').forEach(b => {
+            b.addEventListener('click', () => {
+                document.querySelectorAll('.control-btn[data-range]').forEach(x => x.classList.remove('active'));
+                b.classList.add('active');
+                analysisRange = parseInt(b.dataset.range);
+                initTradingViewWidget();
+            });
+        });
+
+        // Scale controls
+        function setupScaleControls() {
+            const dlsiMinInput = document.getElementById('dlsiMin');
+            const dlsiMaxInput = document.getElementById('dlsiMax');
+            const liiMinInput = document.getElementById('liiMin');
+            const liiMaxInput = document.getElementById('liiMax');
+            const resetBtn = document.getElementById('resetScales');
+            
+            if (!dlsiMinInput) return;  // Not on analysis tab yet
+            
+            const updateScales = () => {
+                chartScales.dlsiMin = parseInt(dlsiMinInput.value) || 0;
+                chartScales.dlsiMax = parseInt(dlsiMaxInput.value) || 100;
+                chartScales.liiMin = parseInt(liiMinInput.value) || -80;
+                chartScales.liiMax = parseInt(liiMaxInput.value) || 80;
+                renderCombinedChart();
+            };
+            
+            dlsiMinInput.addEventListener('change', updateScales);
+            dlsiMaxInput.addEventListener('change', updateScales);
+            liiMinInput.addEventListener('change', updateScales);
+            liiMaxInput.addEventListener('change', updateScales);
+            
+            resetBtn.addEventListener('click', () => {
+                chartScales = { dlsiMin: 0, dlsiMax: 100, liiMin: -80, liiMax: 80 };
+                dlsiMinInput.value = 0;
+                dlsiMaxInput.value = 100;
+                liiMinInput.value = -80;
+                liiMaxInput.value = 80;
+                renderCombinedChart();
+            });
+        }
+        
+        // Setup scale controls when switching to analysis tab
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                if (tab.dataset.section === 'analysis') {
+                    setTimeout(setupScaleControls, 100);
+                }
+            });
+        });
+
+        // ============================================
+        // API KEY MANAGEMENT
+        // ============================================
+
+        function saveApiKey() {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            if (key.length < 10) {
+                alert('API Key inválida. Debe tener al menos 10 caracteres.');
+                return;
+            }
+            FRED_API_KEY = key;
+            localStorage.setItem('FRED_API_KEY', key);
+            document.getElementById('apiKeyInput').value = '';
+            document.getElementById('apiKeyInput').placeholder = 'Key guardada ✓';
+            fetchAllData();
+        }
+
+        // ============================================
+        // DATA FETCHING (Direct to FRED & Treasury)
+        // ============================================
+
+        async function fetchFredSeries(seriesId, days = 150) {
+            const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const url = `${FRED_BASE}?series_id=${seriesId}&api_key=${FRED_API_KEY}&file_type=json&observation_start=${startDate}&sort_order=asc`;
+            
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                if (data.error_message) {
+                    console.warn(`FRED error for ${seriesId}:`, data.error_message);
+                    return [];
+                }
+                
+                return (data.observations || [])
+                    .filter(o => o.value !== '.')
+                    .map(o => ({ date: o.date, value: parseFloat(o.value) }));
+            } catch (e) {
+                console.error(`Error fetching ${seriesId}:`, e);
+                return [];
+            }
+        }
+
+        async function fetchTreasuryTGA(days = 150) {
+            const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const url = `${TREASURY_BASE}?filter=record_date:gte:${startDate},account_type:eq:Treasury General Account (TGA) Closing Balance&fields=record_date,open_today_bal&sort=record_date&page[size]=500&format=json`;
+            
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                return (data.data || [])
+                    .filter(d => d.open_today_bal && d.open_today_bal !== 'null')
+                    .map(d => ({ date: d.record_date, value: parseFloat(d.open_today_bal) }));
+            } catch (e) {
+                console.error('Error fetching TGA:', e);
+                return [];
+            }
+        }
+
+        async function fetchAllData() {
+            if (!FRED_API_KEY) {
+                document.getElementById('statusDot').style.background = 'var(--accent-yellow)';
+                document.getElementById('statusText').textContent = 'Esperando API Key';
+                return;
+            }
+
+            document.getElementById('statusDot').style.background = 'var(--accent-yellow)';
+            document.getElementById('statusText').textContent = 'Cargando...';
+            document.getElementById('loadingText').textContent = 'Cargando datos de FRED y Treasury...';
+
+            try {
+                // Fetch all FRED series in parallel
+                const fredPromises = Object.entries(FRED_SERIES).map(async ([key, seriesId]) => {
+                    const data = await fetchFredSeries(seriesId);
+                    return [key, data];
+                });
+
+                // Add Treasury TGA
+                fredPromises.push(fetchTreasuryTGA().then(data => ['TGA_DAILY', data]));
+
+                const results = await Promise.all(fredPromises);
+
+                // Build state.data
+                state.data = {};
+                let hasData = false;
+                for (const [key, data] of results) {
+                    state.data[key] = data;
+                    if (data.length > 0) hasData = true;
+                }
+
+                if (!hasData) {
+                    throw new Error('No se pudieron obtener datos. Verificá tu API Key.');
+                }
+
+                // Calculate indices
+                state.lii = calculateLII(state.data);
+                state.ielg = calculateIELG(state.data);
+                state.dlsi = calculateDLSI(state.data);
+
+                document.getElementById('loadingContainer').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                document.getElementById('statusDot').style.background = 'var(--accent-green)';
+                document.getElementById('statusText').textContent = 'Actualizado';
+                render();
+
+            } catch (e) {
+                console.error('Error:', e);
+                document.getElementById('statusDot').style.background = 'var(--accent-red)';
+                document.getElementById('statusText').textContent = 'Error';
+                document.getElementById('loadingText').innerHTML = `<span style="color:var(--accent-red)">Error: ${e.message}</span>`;
+            }
+        }
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check for saved API key
+            if (FRED_API_KEY) {
+                document.getElementById('apiKeyInput').placeholder = 'Key guardada ✓';
+                fetchAllData();
+            }
+        });
+    </script>
+    <script src="https://s3.tradingview.com/tv.js"></script>
+</body>
+</html>
