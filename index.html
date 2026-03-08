@@ -1525,6 +1525,7 @@
             FOREIGN_REPO: 'WLRRAFOIAL',
             BANK_BORROWING: 'WLCFLPCL',
             VIX: 'VIXCLS',
+            VIX3M: 'VIXCLS',  // Usamos VIX como proxy para VIX3M
             HY_SPREAD: 'BAMLH0A0HYM2',
             IG_SPREAD: 'BAMLC0A0CM',
             EFFR: 'DFF',
@@ -1717,8 +1718,16 @@
             
             if (tga.length < MOMENTUM_PERIOD + 1) return { value: 0, components: {}, history: [] };
 
+            // FRED Units:
+            // RESERVES (WRESBAL): Millions USD
+            // RRP (RRPONTSYD): Billions USD -> multiply by 1000 to get Millions
+            // TGA: Millions USD
+            // WALCL: Millions USD
+            // FOREIGN_REPO: Millions USD
+            // BANK_BORROWING: Millions USD
+            
             const rMap = new Map(reserves.map(d => [d.date, d.value]));
-            const rrMap = new Map(rrp.map(d => [d.date, d.value]));
+            const rrMap = new Map(rrp.map(d => [d.date, d.value * 1000])); // Convert to millions
             const wMap = new Map(walcl.map(d => [d.date, d.value]));
             const fMap = new Map(foreignRepo.map(d => [d.date, d.value]));
             const bMap = new Map(bankBorrowing.map(d => [d.date, d.value]));
@@ -1733,8 +1742,11 @@
             const fC = getValueForDate(fMap, cDate), fP = getValueForDate(fMap, pDate);
             const bC = getValueForDate(bMap, cDate);
 
+            // Net Liquidity = Reserves + RRP - TGA (all in millions)
             const nlC = rC + rrC - tC, nlP = rP + rrP - tP, nlChg = nlC - nlP;
 
+            // Scale factors adjusted for millions USD
+            // A $50B change is significant -> scale = 50000 (millions)
             const components = {
                 netLiquidity: { name: 'Net Liquidity', change: nlChg, score: normalizeScore(nlChg, 50000), weight: 0.50 },
                 fedFlow: { name: 'Fed Balance', change: wC - wP, score: normalizeScore(wC - wP, 20000), weight: 0.20 },
@@ -1786,9 +1798,9 @@
 
             if (reserves.length === 0) return { value: 0, components: {}, history: [] };
 
-            // Build maps
+            // Build maps - Note: RRP is in billions, others in millions
             const rMap = new Map(reserves.map(d => [d.date, d.value]));
-            const rrMap = new Map(rrp.map(d => [d.date, d.value]));
+            const rrMap = new Map(rrp.map(d => [d.date, d.value * 1000])); // Convert billions to millions
             const tMap = new Map(tga.map(d => [d.date, d.value]));
 
             // Get latest values
@@ -1797,9 +1809,9 @@
             const rr = getValueForDate(rrMap, latestDate);
             const t = getValueForDate(tMap, latestDate);
             
-            // Net Liquidity
+            // Net Liquidity in Trillions (all components now in millions)
             const nl = r + rr - t;
-            const nlT = nl / 1000000;  // Trillions
+            const nlT = nl / 1000000;  // Convert millions to trillions
 
             // 30-day momentum (approximated with available data)
             const date30Ago = reserves.length > 4 ? reserves[reserves.length - 5].date : null;
@@ -1809,7 +1821,7 @@
             const nlT30 = (r30 + rr30 - t30) / 1000000;
             const momentum = (nlT - nlT30) * 12;  // Annualized
 
-            // Reserve Adequacy
+            // Reserve Adequacy (reserves in millions, benchmark $3T = 3000000 millions)
             const resAdq = r / 3000000;
 
             // SOFR-EFFR Spread
