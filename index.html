@@ -2800,6 +2800,23 @@
                 state.lii = calculateLII(state.data);
                 state.ielg = calculateIELG(state.data);
                 state.dlsi = calculateDLSI(state.data);
+                
+                // Debug: log data received
+                console.log('Data received:', {
+                    RESERVES: state.data.RESERVES?.length || 0,
+                    RRP: state.data.RRP?.length || 0,
+                    TGA_DAILY: state.data.TGA_DAILY?.length || 0,
+                    VIX: state.data.VIX?.length || 0,
+                    WALCL: state.data.WALCL?.length || 0,
+                    lastReserves: state.data.RESERVES?.[state.data.RESERVES?.length - 1],
+                    lastRRP: state.data.RRP?.[state.data.RRP?.length - 1],
+                    lastTGA: state.data.TGA_DAILY?.[state.data.TGA_DAILY?.length - 1]
+                });
+                console.log('Indices calculated:', {
+                    LII: state.lii.value,
+                    IELG: state.ielg.value,
+                    DLSI: state.dlsi.value
+                });
 
                 document.getElementById('loadingContainer').style.display = 'none';
                 document.getElementById('mainContent').style.display = 'block';
