@@ -969,12 +969,12 @@
             </div>
             <div class="header-right">
                 <div class="api-key-section">
-                    <input type="password" id="apiKeyInput" placeholder="FRED API Key" class="api-key-input">
-                    <button class="api-key-btn" onclick="saveApiKey()">💾</button>
+                    <input type="text" id="apiUrlInput" placeholder="URL del servidor" class="api-key-input" style="width: 220px;">
+                    <button class="api-key-btn" onclick="saveApiUrl()">💾</button>
                 </div>
                 <div class="status-badge">
                     <span class="status-dot" id="statusDot"></span>
-                    <span id="statusText">Esperando API Key</span>
+                    <span id="statusText">Conectando...</span>
                 </div>
                 <button class="refresh-btn" onclick="fetchAllData()">↻ Actualizar</button>
             </div>
@@ -992,10 +992,7 @@
     <main class="container">
         <div class="loading-container" id="loadingContainer">
             <div class="loading-spinner"></div>
-            <div id="loadingText">Ingresá tu FRED API Key para comenzar</div>
-            <div class="api-key-help">
-                Obtené tu API key gratis en <a href="https://fred.stlouisfed.org/docs/api/api_key.html" target="_blank">fred.stlouisfed.org</a>
-            </div>
+            <div id="loadingText">Conectando al servidor...</div>
         </div>
 
         <div id="mainContent" style="display: none;">
@@ -1514,10 +1511,14 @@
         // CONFIGURATION - GitHub Pages (No Server)
         // ============================================
         
+        // API URL - configurable (stored in localStorage)
+        const DEFAULT_API_URL = 'http://localhost:8081';
+        let API_BASE = localStorage.getItem('API_URL') || DEFAULT_API_URL;
+        
         const FRED_BASE = 'https://api.stlouisfed.org/fred/series/observations';
         const TREASURY_BASE = 'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/dts/operating_cash_balance';
         
-        // FRED Series IDs
+        // FRED Series IDs (not used directly - server fetches these)
         const FRED_SERIES = {
             RESERVES: 'WRESBAL',
             RRP: 'RRPONTSYD',
@@ -2702,133 +2703,66 @@
         });
 
         // ============================================
-        // API KEY MANAGEMENT
+        // API URL MANAGEMENT
         // ============================================
 
-        function saveApiKey() {
-            const key = document.getElementById('apiKeyInput').value.trim();
-            if (key.length < 10) {
-                alert('API Key inválida. Debe tener al menos 10 caracteres.');
+        function saveApiUrl() {
+            const url = document.getElementById('apiUrlInput').value.trim();
+            if (!url) {
+                alert('Ingresá una URL válida');
                 return;
             }
-            FRED_API_KEY = key;
-            localStorage.setItem('FRED_API_KEY', key);
-            document.getElementById('apiKeyInput').value = '';
-            document.getElementById('apiKeyInput').placeholder = 'Key guardada ✓';
+            // Remove trailing slash
+            API_BASE = url.replace(/\/$/, '');
+            localStorage.setItem('API_URL', API_BASE);
+            document.getElementById('apiUrlInput').value = '';
+            document.getElementById('apiUrlInput').placeholder = API_BASE;
             fetchAllData();
         }
 
         // ============================================
-        // DATA FETCHING (Direct to FRED & Treasury)
+        // DATA FETCHING (From Server)
         // ============================================
 
-        async function fetchFredSeries(seriesId, days = 150) {
-            const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            const url = `${FRED_BASE}?series_id=${seriesId}&api_key=${FRED_API_KEY}&file_type=json&observation_start=${startDate}&sort_order=asc`;
-            
-            try {
-                const res = await fetch(url);
-                const data = await res.json();
-                
-                if (data.error_message) {
-                    console.warn(`FRED error for ${seriesId}:`, data.error_message);
-                    return [];
-                }
-                
-                return (data.observations || [])
-                    .filter(o => o.value !== '.')
-                    .map(o => ({ date: o.date, value: parseFloat(o.value) }));
-            } catch (e) {
-                console.error(`Error fetching ${seriesId}:`, e);
-                return [];
-            }
-        }
-
-        async function fetchTreasuryTGA(days = 150) {
-            const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            const url = `${TREASURY_BASE}?filter=record_date:gte:${startDate},account_type:eq:Treasury General Account (TGA) Closing Balance&fields=record_date,open_today_bal&sort=record_date&page[size]=500&format=json`;
-            
-            try {
-                const res = await fetch(url);
-                const data = await res.json();
-                
-                return (data.data || [])
-                    .filter(d => d.open_today_bal && d.open_today_bal !== 'null')
-                    .map(d => ({ date: d.record_date, value: parseFloat(d.open_today_bal) }));
-            } catch (e) {
-                console.error('Error fetching TGA:', e);
-                return [];
-            }
-        }
-
         async function fetchAllData() {
-            if (!FRED_API_KEY) {
-                document.getElementById('statusDot').style.background = 'var(--accent-yellow)';
-                document.getElementById('statusText').textContent = 'Esperando API Key';
-                return;
-            }
-
             document.getElementById('statusDot').style.background = 'var(--accent-yellow)';
             document.getElementById('statusText').textContent = 'Cargando...';
-            document.getElementById('loadingText').textContent = 'Cargando datos de FRED y Treasury...';
+            document.getElementById('loadingText').textContent = 'Conectando al servidor...';
 
             try {
-                // Fetch all FRED series in parallel
-                const fredPromises = Object.entries(FRED_SERIES).map(async ([key, seriesId]) => {
-                    const data = await fetchFredSeries(seriesId);
-                    return [key, data];
-                });
+                const res = await fetch(`${API_BASE}/api/all`);
+                if (!res.ok) throw new Error(`Server error: ${res.status}`);
+                
+                const json = await res.json();
+                if (json.error) throw new Error(json.error);
 
-                // Add Treasury TGA
-                fredPromises.push(fetchTreasuryTGA().then(data => ['TGA_DAILY', data]));
-
-                const results = await Promise.all(fredPromises);
-
-                // Build state.data
-                state.data = {};
-                let hasData = false;
-                for (const [key, data] of results) {
-                    state.data[key] = data;
-                    if (data.length > 0) hasData = true;
-                }
-
-                if (!hasData) {
-                    throw new Error('No se pudieron obtener datos. Verificá tu API Key.');
-                }
-
+                state.data = json.data;
+                
                 // Calculate indices
                 state.lii = calculateLII(state.data);
                 state.ielg = calculateIELG(state.data);
                 state.dlsi = calculateDLSI(state.data);
                 
-                // Debug: log data received
-                console.log('Data received:', {
-                    RESERVES: state.data.RESERVES?.length || 0,
-                    RRP: state.data.RRP?.length || 0,
-                    TGA_DAILY: state.data.TGA_DAILY?.length || 0,
-                    VIX: state.data.VIX?.length || 0,
-                    WALCL: state.data.WALCL?.length || 0,
-                    lastReserves: state.data.RESERVES?.[state.data.RESERVES?.length - 1],
-                    lastRRP: state.data.RRP?.[state.data.RRP?.length - 1],
-                    lastTGA: state.data.TGA_DAILY?.[state.data.TGA_DAILY?.length - 1]
-                });
-                console.log('Indices calculated:', {
-                    LII: state.lii.value,
-                    IELG: state.ielg.value,
-                    DLSI: state.dlsi.value
-                });
+                // Debug
+                console.log('Data received:', Object.keys(state.data).map(k => `${k}: ${state.data[k]?.length || 0}`));
+                console.log('Indices:', { LII: state.lii.value, IELG: state.ielg.value, DLSI: state.dlsi.value });
 
                 document.getElementById('loadingContainer').style.display = 'none';
                 document.getElementById('mainContent').style.display = 'block';
                 document.getElementById('statusDot').style.background = 'var(--accent-green)';
-                document.getElementById('statusText').textContent = 'Actualizado';
+                document.getElementById('statusText').textContent = 'Conectado';
                 render();
 
             } catch (e) {
                 console.error('Error:', e);
                 document.getElementById('statusDot').style.background = 'var(--accent-red)';
                 document.getElementById('statusText').textContent = 'Error';
-                document.getElementById('loadingText').innerHTML = `<span style="color:var(--accent-red)">Error: ${e.message}</span>`;
+                document.getElementById('loadingText').innerHTML = `
+                    <span style="color:var(--accent-red)">Error: ${e.message}</span>
+                    <div style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+                        Servidor: <code>${API_BASE}</code>
+                    </div>
+                `;
             }
         }
 
@@ -2837,11 +2771,8 @@
         // ============================================
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Check for saved API key
-            if (FRED_API_KEY) {
-                document.getElementById('apiKeyInput').placeholder = 'Key guardada ✓';
-                fetchAllData();
-            }
+            document.getElementById('apiUrlInput').placeholder = API_BASE;
+            fetchAllData();
         });
     </script>
     <script src="https://s3.tradingview.com/tv.js"></script>
