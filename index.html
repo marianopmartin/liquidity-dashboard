@@ -1511,8 +1511,8 @@
         // CONFIGURATION - GitHub Pages (No Server)
         // ============================================
         
-        // API URL - configurable (stored in localStorage)
-        const DEFAULT_API_URL = 'http://localhost:8081';
+        // API URL - same server (relative)
+        const DEFAULT_API_URL = '';
         let API_BASE = localStorage.getItem('API_URL') || DEFAULT_API_URL;
         
         const FRED_BASE = 'https://api.stlouisfed.org/fred/series/observations';
